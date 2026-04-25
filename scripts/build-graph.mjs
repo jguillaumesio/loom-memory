@@ -7,6 +7,7 @@ import { readFileSync, readdirSync, statSync, mkdirSync } from 'fs';
 import { join, relative, extname, dirname } from 'path';
 import { getParser, getAllExtensions } from './parsers/index.mjs';
 import { loadLoomIgnore } from '../src/utils/loomignore.js';
+import { parseFile, isTsFile } from '../src/parser/ts-parser.js';
 
 const ROOT = process.cwd();
 const DB_PATH = './_graph/codebase.db';
@@ -74,13 +75,21 @@ function getAllFiles(dir, ig) {
 }
 
 // ── resolve import path to actual file ────────────────────────────────────
+const TS_RESOLVE_EXTS = [
+    '', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
+    '/index.ts', '/index.tsx', '/index.js', '/index.jsx', '/index.mjs',
+];
+
 function resolveImport(fromFile, importPath, parser) {
     // skip bare node_modules / composer / pip packages
     if (!importPath.startsWith('.') && !importPath.startsWith('/') &&
         !importPath.startsWith('\\')) return null;
 
     const base = join(dirname(fromFile), importPath);
-    for (const candidate of parser.resolveExtensions(base)) {
+    const extensions = isTsFile(fromFile)
+        ? TS_RESOLVE_EXTS.map(e => base + e)
+        : parser.resolveExtensions(base);
+    for (const candidate of extensions) {
         try { statSync(candidate); return relative(ROOT, candidate); } catch {}
     }
     return null;
@@ -94,28 +103,53 @@ console.log(`📂 Found ${files.length} files`);
 const build = db.transaction((files) => {
     // Pass 1 — insert all files
     for (const file of files) {
-        const parser  = getParser(file);
-        if (!parser) continue;
         const rel     = relative(ROOT, file);
         const zone    = detectZone(file);
-        const lang    = parser.extensions[0].replace('.', '');
-        const content = readFileSync(file, 'utf8');
-        const syms    = parser.extractSymbols(content, file);
-        insertFile.run(rel, zone, lang, syms.join(','));
-        for (const sym of syms) insertSymbol.run(sym, rel);
+
+        if (isTsFile(file)) {
+            try {
+                const parsed = parseFile(file);
+                const lang   = extname(file).replace('.', '');
+                insertFile.run(rel, zone, lang, parsed.symbols.join(','));
+                for (const sym of parsed.symbols) insertSymbol.run(sym, rel);
+            } catch (err) {
+                console.error(`! parse failed: ${rel} — ${err.message}`);
+                insertFile.run(rel, zone, extname(file).replace('.', ''), '');
+            }
+        } else {
+            const parser = getParser(file);
+            if (!parser) continue;
+            const lang    = parser.extensions[0].replace('.', '');
+            const content = readFileSync(file, 'utf8');
+            const syms    = parser.extractSymbols(content, file);
+            insertFile.run(rel, zone, lang, syms.join(','));
+            for (const sym of syms) insertSymbol.run(sym, rel);
+        }
     }
 
     // Pass 2 — insert imports
     for (const file of files) {
-        const parser  = getParser(file);
-        if (!parser) continue;
-        const rel     = relative(ROOT, file);
-        const content = readFileSync(file, 'utf8');
-        const fromId  = getFileId.get(rel)?.id;
+        const rel    = relative(ROOT, file);
+        const fromId = getFileId.get(rel)?.id;
         if (!fromId) continue;
 
-        for (const imp of parser.extractImports(content, file)) {
-            const resolved = resolveImport(file, imp, parser);
+        let importPaths;
+
+        if (isTsFile(file)) {
+            try {
+                importPaths = parseFile(file).imports;
+            } catch {
+                continue;
+            }
+        } else {
+            const parser = getParser(file);
+            if (!parser) continue;
+            const content = readFileSync(file, 'utf8');
+            importPaths = parser.extractImports(content, file);
+        }
+
+        for (const imp of importPaths) {
+            const resolved = resolveImport(file, imp, getParser(file));
             if (!resolved) continue;
             const toId = getFileId.get(resolved)?.id;
             if (!toId) continue;

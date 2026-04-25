@@ -1,4 +1,5 @@
 // parsers/index.mjs
+import { extname } from 'path';
 import { JavascriptParser } from './javascript.mjs';
 import { PhpParser }        from './php.mjs';
 import { PythonParser }     from './python.mjs';
