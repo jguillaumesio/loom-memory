@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🗺️ Updating wiki..."
+
+# Graph must build first
+node scripts/build-graph.mjs && \
+node scripts/update-code-map.mjs --silent && \
+node scripts/update-detailed-maps.mjs --silent &
+
+# Don't block the commit
+disown

@@ -1,0 +1,17 @@
+{
+  "zones": [
+    { "name": "api", "path": "apps/api/src", "description": "REST API layer" },
+    { "name": "dashboard", "path": "apps/dashboard/src", "description": "Next.js frontend" },
+    { "name": "admin", "path": "apps/admin/src", "description": "Admin panel" },
+    { "name": "packages", "path": "packages", "description": "Shared packages" }
+  ],
+  "output": {
+    "wiki": "_wiki",
+    "graph": "_graph"
+  },
+  "ollama": {
+    "model": "qwen2.5-coder:14b",
+    "baseUrl": "http://localhost:11434"
+  },
+  "ignore": ["node_modules", ".next", "dist", "build", ".turbo"]
+}
