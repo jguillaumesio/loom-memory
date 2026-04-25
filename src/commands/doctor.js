@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import chalk from 'chalk';
+import { listModels, OllamaError } from '../utils/ollama.js';
 
 const PASS = chalk.green('✓');
 const FAIL = chalk.red('✗');
@@ -50,22 +51,21 @@ export async function doctorCommand() {
   let ollamaUp = false;
   if (!await check('Ollama reachable at http://localhost:11434', async () => {
     try {
-      const res = await fetch('http://localhost:11434/api/tags');
-      if (!res.ok) return `HTTP ${res.status}`;
+      await listModels();
       ollamaUp = true;
     } catch (e) {
-      return 'connection refused — is `ollama serve` running?';
+      if (e instanceof OllamaError) return e.message;
+      return e.message;
     }
   })) failures++;
 
   if (ollamaUp) {
     if (!await check('At least one model pulled', async () => {
-      const res = await fetch('http://localhost:11434/api/tags');
-      const data = await res.json();
-      if (!data.models || data.models.length === 0) {
+      const models = await listModels();
+      if (models.length === 0) {
         return 'no models found — run `ollama pull qwen2.5-coder:7b`';
       }
-      console.log(chalk.gray(`      models: ${data.models.map(m => m.name).join(', ')}`));
+      console.log(chalk.gray(`      models: ${models.join(', ')}`));
     })) failures++;
   }
 

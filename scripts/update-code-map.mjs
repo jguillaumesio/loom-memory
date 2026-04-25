@@ -5,6 +5,7 @@ import { execSync } from 'child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, relative } from 'path';
 import { createHash } from 'crypto';
+import { generate as ollamaGenerateFromUtil, OllamaError, printOllamaError } from '../src/utils/ollama.js';
 
 // ─── Resolve target repo ────────────────────────────────────────────────────
 
@@ -41,20 +42,14 @@ const IGNORE = config.ignore || ['node_modules', '.next', 'dist', 'build'];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function ollamaGenerate(prompt) {
-    const body = JSON.stringify({
+async function ollamaGenerate(prompt) {
+    const response = await ollamaGenerateFromUtil({
         model: OLLAMA_MODEL,
         prompt,
-        stream: false,
-        options: { temperature: 0.2, num_predict: 2048 }
+        host: OLLAMA_URL,
+        options: { temperature: 0.2, num_predict: 2048 },
     });
-
-    const res = execSync(
-        `curl -sf -X POST ${OLLAMA_URL}/api/generate -H "Content-Type: application/json" -d '${body.replace(/'/g, "'\\''")}'`,
-        { maxBuffer: 10 * 1024 * 1024 }
-    );
-
-    return JSON.parse(res.toString()).response;
+    return response;
 }
 
 function getChangedZones() {
@@ -194,12 +189,16 @@ Be concise. This map is read by AI assistants, not humans. Prioritize signal ove
 Respond with the markdown map only. No commentary.`;
 
     try {
-        const map = ollamaGenerate(prompt);
+        const map = await ollamaGenerate(prompt);
         const header = `<!-- zone:${zone.name} updated:${new Date().toISOString()} hash:${hashContent(snapshot)} -->\n`;
         writeFileSync(mapPath, header + map, 'utf-8');
         log(`  ✅ ${zone.name} — map updated`);
     } catch (err) {
-        console.error(`  ❌ ${zone.name} — Ollama failed:`, err.message);
+        if (err instanceof OllamaError) {
+            printOllamaError(err);
+        } else {
+            console.error(`  ❌ ${zone.name} — Ollama failed:`, err.message);
+        }
     }
 }
 

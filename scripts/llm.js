@@ -5,6 +5,8 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
+import { generate as ollamaGenerate, OllamaError } from '../src/utils/ollama.js';
+
 let config = {};
 try {
     const mod = await import(`${process.cwd()}/graph-rag.config.js`);
@@ -20,21 +22,15 @@ const baseURL  = config.llm?.baseURL;
 
 // ── Ollama ────────────────────────────────────────────────────────────────────
 async function chatOllama(prompt) {
-    const url   = config.ollama?.url ?? 'http://localhost:11434';
-    const mdl   = config.ollama?.model ?? model;
-    const res   = await fetch(`${url}/api/generate`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            model:   mdl,
-            prompt,
-            stream:  false,
-            options: { temperature: 0.2, num_predict: 4096, num_ctx: 16384 },
-        }),
+    const host = config.ollama?.url ?? process.env.OLLAMA_HOST ?? 'http://localhost:11434';
+    const mdl  = config.ollama?.model ?? model;
+    const response = await ollamaGenerate({
+        model: mdl,
+        prompt,
+        host,
+        options: { temperature: 0.2, num_predict: 4096, num_ctx: 16384 },
     });
-    if (!res.ok) throw new Error(`Ollama error ${res.status}: ${await res.text()}`);
-    const json = await res.json();
-    return json.response?.trim() ?? '';
+    return response?.trim() ?? '';
 }
 
 // ── OpenAI ────────────────────────────────────────────────────────────────────
