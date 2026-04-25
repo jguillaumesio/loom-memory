@@ -3,6 +3,7 @@ import { program } from 'commander'
 import { runInit } from '../src/commands/init.js'
 import { runUpdate } from '../src/commands/update.js'
 import { doctorCommand } from '../src/commands/doctor.js'
+import { statusCommand } from '../src/commands/status.js'
 
 program
     .name('graph-rag')
@@ -26,6 +27,11 @@ program
     .command('doctor')
     .description('Diagnose environment and repository setup')
     .action(doctorCommand)
+
+program
+    .command('status')
+    .description('Show index freshness and statistics')
+    .action(statusCommand)
 
 program
     .command('install-hooks <repoPath>')
