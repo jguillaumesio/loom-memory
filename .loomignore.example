@@ -1,0 +1,8 @@
+# .loomignore — paths to exclude from loom-memory analysis
+# Same syntax as .gitignore
+# These are MERGED with built-in defaults (node_modules, dist, _graph, etc.)
+
+# Examples:
+# docs/
+# *.generated.ts
+# apps/legacy/**

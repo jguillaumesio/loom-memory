@@ -6,6 +6,7 @@ const Database = require('better-sqlite3');
 import { readFileSync, readdirSync, statSync, mkdirSync } from 'fs';
 import { join, relative, extname, dirname } from 'path';
 import { getParser, getAllExtensions } from './parsers/index.mjs';
+import { loadLoomIgnore } from '../src/utils/loomignore.js';
 
 const ROOT = process.cwd();
 const DB_PATH = './_graph/codebase.db';
@@ -59,15 +60,14 @@ function detectZone(filePath) {
 // ── walk files, pick parser by extension ──────────────────────────────────
 const ALL_EXTENSIONS = getAllExtensions();
 
-function getAllFiles(dir) {
+function getAllFiles(dir, ig) {
     const results = [];
-    const IGNORE = ['node_modules', 'dist', 'build', '.git', '_graph', '_wiki',
-        '.next', 'vendor', '__pycache__', '.venv', 'coverage'];
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
         if (entry.name.startsWith('.')) continue;
-        if (IGNORE.includes(entry.name)) continue;
         const full = join(dir, entry.name);
-        if (entry.isDirectory()) results.push(...getAllFiles(full));
+        const rel = relative(ROOT, full);
+        if (ig.ignores(rel)) continue;
+        if (entry.isDirectory()) results.push(...getAllFiles(full, ig));
         else if (ALL_EXTENSIONS.includes(extname(entry.name))) results.push(full);
     }
     return results;
@@ -87,7 +87,8 @@ function resolveImport(fromFile, importPath, parser) {
 }
 
 // ── build ─────────────────────────────────────────────────────────────────
-const files = getAllFiles(ROOT);
+const ig = loadLoomIgnore(ROOT);
+const files = getAllFiles(ROOT, ig);
 console.log(`📂 Found ${files.length} files`);
 
 const build = db.transaction((files) => {
