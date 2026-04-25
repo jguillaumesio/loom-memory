@@ -6,6 +6,7 @@ import { runRepomix, loadExistingOutput } from '../repomix.js'
 import { callLLM } from '../llm.js'
 import { parseWikiFiles } from '../wiki-parser.js'
 import { execSync } from 'child_process'
+import { ensureGitignore } from '../utils/gitignore.js'
 
 function buildGraph(absPath) {
     const graphScript = path.join(absPath, 'build-graph.mjs')
@@ -121,6 +122,10 @@ export async function runInit(repoPath, options) {
     spinner = ora('Scaffolding docs/decisions.md and docs/pitfalls.md...').start()
     ensureDocsFiles(absPath)
     spinner.succeed('docs/ scaffolded (skipped if already exists)')
+
+    // ── Step 7: .gitignore ───────────────────────────────────────────────────
+    const gitignoreResult = ensureGitignore(absPath)
+    console.log(chalk.gray(`  ✓ .gitignore ${gitignoreResult.action}: _graph/*.db excluded`))
 
     // ── Done ──────────────────────────────────────────────────────────────────
     console.log(chalk.bold.green('\n✅ Done!\n'))
