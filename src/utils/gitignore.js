@@ -5,6 +5,7 @@ const MANAGED_ENTRIES = [
   '_graph/*.db',
   '_graph/*.db-shm',
   '_graph/*.db-wal',
+  '_graph/runs.jsonl',
 ];
 
 const LOOM_BLOCK_START = '# loom-memory — auto-managed (do not edit this block)';

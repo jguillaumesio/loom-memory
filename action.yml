@@ -1,0 +1,25 @@
+name: loom-memory
+description: Update loom-memory repository knowledge.
+
+inputs:
+  path:
+    description: Repository path to update.
+    required: false
+    default: "."
+  all:
+    description: Refresh all generated maps.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        if [ "${{ inputs.all }}" = "true" ]; then
+          npx --yes loom-memory update "${{ inputs.path }}" --all --silent
+        else
+          npx --yes loom-memory update "${{ inputs.path }}" --silent
+        fi
+

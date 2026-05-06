@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import { appendLlmLog, estimateTokens } from './llm-log.js';
 
 const DEFAULT_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
 
@@ -53,27 +54,55 @@ export async function ensureModel(model, host = DEFAULT_HOST) {
   }
 }
 
-export async function generate({ model, prompt, system, format, options = {}, host = DEFAULT_HOST }) {
-  const res = await rawFetch('/api/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, prompt, system, format, stream: false, options }),
-  }, host);
+export async function generate({ model, prompt, system, format, options = {}, host = DEFAULT_HOST, repoRoot, task, zone }) {
+  const started = Date.now();
+  let res;
+  try {
+    res = await rawFetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, prompt, system, format, stream: false, options }),
+    }, host);
+  } catch (err) {
+    appendLlmLog(repoRoot, {
+      provider: 'ollama',
+      model,
+      task,
+      zone,
+      promptTokens: estimateTokens(prompt),
+      durationMs: Date.now() - started,
+      error: err.message,
+    });
+    throw err;
+  }
 
   if (res.status === 404) {
-    throw new OllamaError(
+    const err = new OllamaError(
       `Ollama model "${model}" not found on the server.`,
       { hint: `Run \`ollama pull ${model}\`.` }
     );
+    appendLlmLog(repoRoot, { provider: 'ollama', model, task, zone, promptTokens: estimateTokens(prompt), durationMs: Date.now() - started, error: err.message });
+    throw err;
   }
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new OllamaError(
+    const err = new OllamaError(
       `Ollama generate failed (HTTP ${res.status}).`,
       { hint: text ? text.slice(0, 200) : 'Check `ollama serve` logs.' }
     );
+    appendLlmLog(repoRoot, { provider: 'ollama', model, task, zone, promptTokens: estimateTokens(prompt), durationMs: Date.now() - started, error: err.message });
+    throw err;
   }
   const data = await res.json();
+  appendLlmLog(repoRoot, {
+    provider: 'ollama',
+    model,
+    task,
+    zone,
+    promptTokens: data.prompt_eval_count ?? estimateTokens(prompt),
+    completionTokens: data.eval_count ?? estimateTokens(data.response),
+    durationMs: Date.now() - started,
+  });
   return data.response;
 }
 

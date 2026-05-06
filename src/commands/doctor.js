@@ -27,8 +27,8 @@ async function check(name, fn) {
   }
 }
 
-export async function doctorCommand() {
-  const repoRoot = process.cwd();
+export async function doctorCommand(repoPath = '.') {
+  const repoRoot = path.resolve(repoPath);
   let failures = 0;
 
   console.log(chalk.bold('\nloom-memory doctor\n'));
@@ -43,8 +43,10 @@ export async function doctorCommand() {
     execSync('git --version', { stdio: 'ignore' });
   })) failures++;
 
-  if (!await check('repomix installed', () => {
-    execSync('npx --no-install repomix --version', { stdio: 'ignore' });
+  if (!await check('repomix installed locally or globally', () => {
+    const local = path.join(repoRoot, 'node_modules/.bin/repomix');
+    if (fs.existsSync(local)) return true;
+    execSync('command -v repomix', { stdio: 'ignore', shell: '/bin/sh' });
   })) failures++;
 
   console.log(chalk.bold('\nOllama'));
@@ -78,13 +80,13 @@ export async function doctorCommand() {
 
   await check('_graph/ directory exists', () => {
     if (!fs.existsSync(path.join(repoRoot, '_graph'))) {
-      return { warn: 'not initialized — run `loom-memory init`' };
+      return { warn: `not initialized — run \`loom-memory init ${repoRoot}\`` };
     }
   });
 
   await check('_wiki/ directory exists', () => {
     if (!fs.existsSync(path.join(repoRoot, '_wiki'))) {
-      return { warn: 'not initialized — run `loom-memory init`' };
+      return { warn: `not initialized — run \`loom-memory init ${repoRoot}\`` };
     }
   });
 

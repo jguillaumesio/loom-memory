@@ -6,6 +6,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, relative } from 'path';
 import { createHash } from 'crypto';
 import { generate as ollamaGenerateFromUtil, OllamaError, printOllamaError } from '../src/utils/ollama.js';
+import { loadConfig } from '../src/config.js';
 
 // ─── Resolve target repo ────────────────────────────────────────────────────
 
@@ -23,34 +24,16 @@ const log = (...msg) => { if (!silent) console.log(...msg); };
 
 // ─── Load config from target repo ───────────────────────────────────────────
 
-const CONFIG_PATH = join(TARGET_ROOT, '.wiki-tool');
-
-if (!existsSync(CONFIG_PATH)) {
-    console.error(`❌ No .wiki-tool config found in ${TARGET_ROOT}`);
-    console.error(`   Run: wiki-tool init --target ${TARGET_ROOT}`);
-    process.exit(1);
-}
-
-const config = JSON.parse(readFileSync(CONFIG_PATH, 'utf-8'));
+const config = await loadConfig(TARGET_ROOT);
 
 const ZONES = config.zones;
 const WIKI_DIR = join(TARGET_ROOT, config.output?.wiki || '_wiki');
 const MAPS_DIR = join(WIKI_DIR, 'maps');
-const OLLAMA_MODEL = config.ollama?.model || 'qwen2.5-coder:14b';
-const OLLAMA_URL = config.ollama?.baseUrl || 'http://localhost:11434';
+const OLLAMA_MODEL = config.llm?.models?.zoneMaps || config.ollama?.model || 'qwen2.5-coder:7b';
+const OLLAMA_URL = config.ollama?.url || config.llm?.ollamaUrl || 'http://localhost:11434';
 const IGNORE = config.ignore || ['node_modules', '.next', 'dist', 'build'];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-async function ollamaGenerate(prompt) {
-    const response = await ollamaGenerateFromUtil({
-        model: OLLAMA_MODEL,
-        prompt,
-        host: OLLAMA_URL,
-        options: { temperature: 0.2, num_predict: 2048 },
-    });
-    return response;
-}
 
 function getChangedZones() {
     if (allFlag) return ZONES.map(z => z.name);
@@ -68,7 +51,7 @@ function getChangedZones() {
         const affected = new Set();
         for (const file of changed) {
             for (const zone of ZONES) {
-                if (file.startsWith(zone.path)) {
+                if (zone.path === '.' || file.startsWith(zone.path)) {
                     affected.add(zone.name);
                 }
             }
@@ -86,11 +69,9 @@ function collectFiles(zonePath, maxFiles = 80) {
 
     if (!existsSync(absPath)) return [];
 
-    const ignoreArgs = IGNORE.map(i => `--exclude-dir=${i}`).join(' ');
-
     try {
         const result = execSync(
-            `find "${absPath}" -type f \\( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.mjs" \\) ${IGNORE.map(i => `! -path "*/${i}/*"`).join(' ')} | head -${maxFiles}`,
+            `find "${absPath}" -type f \\( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.mjs" -o -name "*.cjs" -o -name "*.py" -o -name "*.php" -o -name "*.rb" \\) ${IGNORE.map(i => `! -path "*/${i}/*"`).join(' ')} | head -${maxFiles}`,
             { encoding: 'utf-8', cwd: TARGET_ROOT }
         ).trim().split('\n').filter(Boolean);
 
@@ -189,7 +170,15 @@ Be concise. This map is read by AI assistants, not humans. Prioritize signal ove
 Respond with the markdown map only. No commentary.`;
 
     try {
-        const map = await ollamaGenerate(prompt);
+        const map = await ollamaGenerateFromUtil({
+            model: OLLAMA_MODEL,
+            prompt,
+            host: OLLAMA_URL,
+            repoRoot: TARGET_ROOT,
+            task: 'zone-map',
+            zone: zone.name,
+            options: { temperature: 0.2, num_predict: 2048 },
+        });
         const header = `<!-- zone:${zone.name} updated:${new Date().toISOString()} hash:${hashContent(snapshot)} -->\n`;
         writeFileSync(mapPath, header + map, 'utf-8');
         log(`  ✅ ${zone.name} — map updated`);

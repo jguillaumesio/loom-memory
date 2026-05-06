@@ -1,13 +1,25 @@
 import path from 'path'
 import fs from 'fs'
-import { execSync } from 'child_process'
+import { execFileSync, execSync } from 'child_process'
+import { fileURLToPath } from 'url'
 import ora from 'ora'
 import chalk from 'chalk'
 import { callLLM } from '../llm.js'
+import { loadConfig } from '../config.js'
 
-function getChangedFiles(repoPath) {
+function taskSpinner(label, silent) {
+    if (!silent) return ora(label).start()
+    return {
+        succeed() {},
+        fail(message) { if (message) console.error(message) },
+        warn(message) { if (message) console.error(message) },
+    }
+}
+
+function getChangedFiles(repoPath, since = 'last-commit') {
+    const diffRef = since === 'last-commit' ? 'HEAD~1 HEAD' : `${since} HEAD`
     try {
-        const output = execSync('git diff --name-only HEAD~1 HEAD', {
+        const output = execSync(`git diff --name-only ${diffRef}`, {
             cwd: repoPath,
             encoding: 'utf-8'
         })
@@ -37,23 +49,36 @@ function readChangedContent(repoPath, files) {
 
 export async function runUpdate(repoPath, options) {
     const absPath = path.resolve(repoPath)
-    const wikiDir = path.join(absPath, '_wiki')
+    const config = await loadConfig(absPath)
+    const wikiDir = path.join(absPath, config.output.wiki)
+    const silent = !!options.silent
 
-    console.log(chalk.bold.cyan('\n🔄 graph-rag update\n'))
+    if (!silent) console.log(chalk.bold.cyan('\nloom-memory update\n'))
 
-    const changedFiles = getChangedFiles(absPath)
+    let spinner = taskSpinner('Rebuilding static graph...', silent)
+    try {
+        const graphScript = new URL('../../scripts/build-graph.mjs', import.meta.url)
+        execFileSync(process.execPath, [fileURLToPath(graphScript)], { cwd: absPath, stdio: silent ? 'ignore' : 'inherit' })
+        spinner.succeed('Static graph rebuilt')
+    } catch (e) {
+        spinner.fail('Static graph failed: ' + e.message)
+    }
+
+    const changedFiles = options.all ? ['*'] : getChangedFiles(absPath, options.since)
     if (!changedFiles.length) {
-        console.log(chalk.yellow('No changed files detected.'))
+        if (!silent) console.log(chalk.yellow('No changed files detected.'))
+        await runMapScripts(absPath, options, silent)
         return
     }
 
-    console.log(chalk.dim(`Changed files: ${changedFiles.join(', ')}\n`))
+    if (!silent) console.log(chalk.dim(`Changed files: ${changedFiles.join(', ')}\n`))
 
-    const changedContext = readChangedContent(absPath, changedFiles)
+    const changedContext = options.all ? '' : readChangedContent(absPath, changedFiles)
 
     // Re-generate call graph for changed files only
-    const spinner = ora('Updating _wiki/05-Call-Graph.md for changed files...').start()
+    spinner = taskSpinner('Updating _wiki/05-Call-Graph.md for changed files...', silent)
     try {
+        if (!changedContext) throw new Error('No readable changed files for LLM call graph update')
         const prompt = `
 Update the call graph for ONLY these changed files. 
 Use the same format as before (📁 file * function * Logic * -> Calls).
@@ -61,7 +86,12 @@ Only output entries for the files listed below.
 
 ${changedContext}
 `
-        const output = await callLLM(prompt, changedContext)
+        const output = await callLLM(prompt, changedContext, {
+            repoRoot: absPath,
+            config,
+            task: 'incremental-call-graph',
+            model: config.llm.models.callGraph,
+        })
 
         // Append to existing call graph with a timestamp section
         const cgPath = path.join(wikiDir, '05-Call-Graph.md')
@@ -72,8 +102,35 @@ ${changedContext}
 
         spinner.succeed('Call graph updated')
     } catch (e) {
-        spinner.fail(e.message)
+        spinner.warn(e.message)
     }
 
-    console.log(chalk.bold.green('\n✅ Update complete\n'))
+    await runMapScripts(absPath, options, silent)
+
+    if (!silent) console.log(chalk.bold.green('\nUpdate complete\n'))
+}
+
+async function runMapScripts(absPath, options, silent) {
+    const args = ['--target', absPath]
+    if (options.silent) args.push('--silent')
+    if (options.all) args.push('--all')
+
+    const scripts = [
+        { label: 'zone maps', file: '../../scripts/update-code-map.mjs' },
+        { label: 'detailed maps', file: '../../scripts/update-detailed-maps.mjs' },
+    ]
+
+    for (const script of scripts) {
+        const spinner = taskSpinner(`Updating ${script.label}...`, silent)
+        try {
+            const scriptUrl = new URL(script.file, import.meta.url)
+            execFileSync(process.execPath, [fileURLToPath(scriptUrl), ...args], {
+                cwd: absPath,
+                stdio: silent ? 'ignore' : 'inherit',
+            })
+            spinner.succeed(`${script.label} updated`)
+        } catch (e) {
+            spinner.warn(`${script.label} skipped: ${e.message}`)
+        }
+    }
 }

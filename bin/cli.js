@@ -1,44 +1,52 @@
 #!/usr/bin/env node
+import path from 'node:path'
 import { program } from 'commander'
 import { runInit } from '../src/commands/init.js'
 import { runUpdate } from '../src/commands/update.js'
 import { doctorCommand } from '../src/commands/doctor.js'
 import { statusCommand } from '../src/commands/status.js'
+import { installHooks } from '../src/commands/install-hooks.js'
 
 program
-    .name('graph-rag')
-    .description('Generate AI context wiki for any repository')
+    .name('loom-memory')
+    .description('Persistent repository memory for AI coding agents')
     .version('1.0.0')
 
 program
     .command('init <repoPath>')
-    .description('Full wiki generation for a repository')
-    .option('--model <model>', 'Override model (gpt-4o, claude-sonnet)')
+    .description('Initialize repository memory for a repository')
+    .option('--model <model>', 'Override generation model')
     .option('--skip-repomix', 'Use existing repomix-output.xml')
+    .option('--no-hooks', 'Skip installing Git hooks')
+    .option('--github-action', 'Install a GitHub Actions workflow')
     .action(runInit)
 
 program
     .command('update <repoPath>')
-    .description('Incremental refresh based on git changes')
+    .description('Refresh repository memory based on git changes')
     .option('--since <ref>', 'Git ref to diff from', 'last-commit')
+    .option('--silent', 'Reduce command output')
+    .option('--all', 'Refresh all generated local maps')
     .action(runUpdate)
 
 program
     .command('doctor')
     .description('Diagnose environment and repository setup')
+    .argument('[repoPath]', 'Repository path', '.')
     .action(doctorCommand)
 
 program
     .command('status')
     .description('Show index freshness and statistics')
+    .argument('[repoPath]', 'Repository path', '.')
     .action(statusCommand)
 
 program
     .command('install-hooks <repoPath>')
-    .description('Install Husky post-commit hook for auto self-improvement')
-    .action(async (repoPath) => {
-        const { installHuskyHooks } = await import('../src/commands/install-hooks.js')
-        installHuskyHooks(path.resolve(repoPath))
+    .description('Install post-commit hooks for auto self-improvement')
+    .option('--github-action', 'Also install a GitHub Actions workflow')
+    .action((repoPath, options) => {
+        installHooks(path.resolve(repoPath), options)
     })
 
 program.parse()

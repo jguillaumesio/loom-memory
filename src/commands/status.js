@@ -3,9 +3,12 @@ import path from 'node:path';
 import chalk from 'chalk';
 import Database from 'better-sqlite3';
 import { loadLoomIgnore } from '../utils/loomignore.js';
+import { promptHash, readWikiFrontmatter } from '../utils/wiki-frontmatter.js';
 
-export async function statusCommand() {
-  const repoRoot = process.cwd();
+const INDEXED_EXTS = new Set(['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.py', '.php', '.rb']);
+
+export async function statusCommand(repoPath = '.') {
+  const repoRoot = path.resolve(repoPath);
   const dbPath = path.join(repoRoot, '_graph', 'codebase.db');
 
   console.log(chalk.bold('\nloom-memory status\n'));
@@ -29,13 +32,18 @@ export async function statusCommand() {
   const fileCount = db.prepare('SELECT COUNT(*) as n FROM files').get().n;
   const symbolCount = db.prepare('SELECT COUNT(*) as n FROM symbols').get().n;
   let edgeCount = null;
+  let callCount = null;
   try {
     edgeCount = db.prepare('SELECT COUNT(*) as n FROM imports').get().n;
+  } catch { /* table may not exist */ }
+  try {
+    callCount = db.prepare('SELECT COUNT(*) as n FROM calls').get().n;
   } catch { /* table may not exist */ }
 
   console.log(`  Files indexed: ${chalk.cyan(fileCount)}`);
   console.log(`  Symbols: ${chalk.cyan(symbolCount)}`);
   if (edgeCount !== null) console.log(`  Edges: ${chalk.cyan(edgeCount)}`);
+  if (callCount !== null) console.log(`  Calls: ${chalk.cyan(callCount)}`);
 
   // ── Stale files ─────────────────────────────────────────
   console.log(chalk.bold('\nFreshness'));
@@ -83,8 +91,47 @@ export async function statusCommand() {
     console.log(chalk.gray('\n  Run `loom-memory update` to refresh.'));
   }
 
+  reportPromptFreshness(repoRoot);
+
   console.log();
   db.close();
+}
+
+function reportPromptFreshness(repoRoot) {
+  const wikiDir = path.join(repoRoot, '_wiki');
+  if (!fs.existsSync(wikiDir)) return;
+
+  const promptMap = {
+    '00-Index.md': 'wiki',
+    '01-Architecture-Stack.md': 'wiki',
+    '02-Fonctionnalites-Actuelles.md': 'wiki',
+    '03-Regles-LLM.md': 'wiki',
+    '04-Code-Map.md': 'map',
+    '05-Call-Graph.md': 'callgraph',
+  };
+
+  const stale = [];
+  const missingMeta = [];
+  for (const [file, promptName] of Object.entries(promptMap)) {
+    const filePath = path.join(wikiDir, file);
+    if (!fs.existsSync(filePath)) continue;
+    const meta = readWikiFrontmatter(filePath);
+    if (!meta?.loom_prompt_hash) {
+      missingMeta.push(file);
+      continue;
+    }
+    const promptPath = new URL(`../../prompts/${promptName}.md`, import.meta.url);
+    const currentHash = promptHash(fs.readFileSync(promptPath, 'utf8'));
+    if (meta.loom_prompt_hash !== currentHash) stale.push(file);
+  }
+
+  console.log(chalk.bold('\nPrompt Versions'));
+  if (stale.length === 0 && missingMeta.length === 0) {
+    console.log(`  ${chalk.green('✓')} Wiki prompt metadata is current.`);
+    return;
+  }
+  for (const file of stale) console.log(`  ${chalk.yellow('!')} ${file} was generated with an older prompt.`);
+  for (const file of missingMeta) console.log(`  ${chalk.yellow('!')} ${file} has no loom prompt metadata.`);
 }
 
 function findNewFiles(repoRoot, indexedSet, ig) {
@@ -102,7 +149,7 @@ function walk(root, dir, ig, onFile) {
     const rel = path.relative(root, abs);
     if (ig.ignores(rel) || ig.ignores(rel + '/')) continue;
     if (entry.isDirectory()) walk(root, abs, ig, onFile);
-    else if (entry.isFile()) onFile(rel);
+    else if (entry.isFile() && INDEXED_EXTS.has(path.extname(entry.name))) onFile(rel);
   }
 }
 

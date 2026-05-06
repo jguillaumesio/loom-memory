@@ -9,10 +9,11 @@ export function isTsFile(filePath) {
 }
 
 /**
- * Parse a source file and return { symbols, imports }.
+ * Parse a source file and return { symbols, imports, calls }.
  *
  * symbols: string[] — top-level exported names
  * imports: string[] — module specifiers (raw, unresolved)
+ * calls: { caller: string, callee: string, line: number }[] — detected call sites
  */
 export function parseFile(filePath) {
   const text = fs.readFileSync(filePath, 'utf8');
@@ -27,6 +28,8 @@ export function parseFile(filePath) {
 
   const symbols = new Set();
   const imports = new Set();
+  const calls = [];
+  const functionStack = [];
 
   function visit(node) {
     // ── IMPORTS ──────────────────────────────────────────
@@ -53,6 +56,15 @@ export function parseFile(filePath) {
           node.arguments.length > 0 &&
           ts.isStringLiteral(node.arguments[0])) {
         imports.add(node.arguments[0].text);
+      }
+
+      const current = functionStack[functionStack.length - 1];
+      if (current) {
+        const callee = callName(expr);
+        if (callee && !isNoiseCall(callee)) {
+          const pos = sf.getLineAndCharacterOfPosition(node.getStart(sf));
+          calls.push({ caller: current, callee, line: pos.line + 1 });
+        }
       }
     }
 
@@ -86,6 +98,14 @@ export function parseFile(filePath) {
       symbols.add(node.isExportEquals ? 'export=' : 'default');
     }
 
+    const fnName = functionName(node);
+    if (fnName) {
+      functionStack.push(fnName);
+      ts.forEachChild(node, visit);
+      functionStack.pop();
+      return;
+    }
+
     ts.forEachChild(node, visit);
   }
 
@@ -96,9 +116,42 @@ export function parseFile(filePath) {
     return !!node.modifiers?.some(m => m.kind === ts.SyntaxKind.DefaultKeyword);
   }
 
+  function functionName(node) {
+    if ((ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) && node.name) {
+      return node.name.text;
+    }
+    if (ts.isMethodDeclaration(node) && node.name) return node.name.getText(sf);
+    if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
+      if (ts.isVariableDeclaration(node.parent) && ts.isIdentifier(node.parent.name)) {
+        return node.parent.name.text;
+      }
+      if (ts.isPropertyAssignment(node.parent)) return node.parent.name.getText(sf);
+    }
+    return null;
+  }
+
+  function callName(expr) {
+    if (ts.isIdentifier(expr)) return expr.text;
+    if (ts.isPropertyAccessExpression(expr)) return expr.name.text;
+    if (ts.isElementAccessExpression(expr) && ts.isStringLiteral(expr.argumentExpression)) {
+      return expr.argumentExpression.text;
+    }
+    return null;
+  }
+
+  function isNoiseCall(name) {
+    return new Set([
+      'log', 'error', 'warn', 'info', 'debug',
+      'map', 'filter', 'reduce', 'forEach', 'find', 'some', 'every',
+      'push', 'pop', 'slice', 'split', 'join', 'trim', 'includes',
+      'setTimeout', 'setInterval', 'JSON', 'parse', 'stringify',
+    ]).has(name);
+  }
+
   visit(sf);
   return {
     symbols: [...symbols],
     imports: [...imports],
+    calls,
   };
 }

@@ -5,29 +5,31 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
-import { generate as ollamaGenerate, OllamaError } from '../src/utils/ollama.js';
+import { generate as ollamaGenerate } from '../src/utils/ollama.js';
+import { loadConfig } from '../src/config.js';
 
-let config = {};
-try {
-    const mod = await import(`${process.cwd()}/graph-rag.config.js`);
-    config = mod.default ?? {};
-} catch {
-    // no config file — use env vars only
-}
+const args = process.argv.slice(2);
+const targetIdx = args.indexOf('--target');
+const repoRoot = targetIdx !== -1 ? args[targetIdx + 1] : process.cwd();
+const config = await loadConfig(repoRoot);
 
 const provider = config.llm?.provider ?? process.env.LLM_PROVIDER ?? 'ollama';
 const model    = config.llm?.model    ?? process.env.LLM_MODEL    ?? 'qwen2.5-coder:7b';
-const apiKey   = config.llm?.apiKey   ?? process.env.LLM_API_KEY;
+const apiKey   = config.llm?.apiKey
+    ?? process.env.LLM_API_KEY
+    ?? (provider === 'anthropic' ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY);
 const baseURL  = config.llm?.baseURL;
 
 // ── Ollama ────────────────────────────────────────────────────────────────────
 async function chatOllama(prompt) {
     const host = config.ollama?.url ?? process.env.OLLAMA_HOST ?? 'http://localhost:11434';
-    const mdl  = config.ollama?.model ?? model;
+    const mdl  = config.llm?.models?.detailedMaps ?? config.ollama?.model ?? model;
     const response = await ollamaGenerate({
         model: mdl,
         prompt,
         host,
+        repoRoot,
+        task: 'detailed-map',
         options: { temperature: 0.2, num_predict: 4096, num_ctx: 16384 },
     });
     return response?.trim() ?? '';

@@ -20,13 +20,13 @@
 | V1-02 | Explicit Ollama errors | ✅ Done (task #5) |
 | V1-19 | AGENTS.md merge markers | ✅ Done (task #6) |
 | V1-06 | AST parser (TS/JS) | ✅ Done (task #7) |
-| V1-01 | CI/CD hooks (language-agnostic) | 🔴 TODO |
-| V1-13 | Config validation (Zod) | 🟡 TODO |
-| V1-07 | Function-level call graph in SQLite | 🟡 TODO |
-| V1-11 | LLM call logging | 🟡 TODO |
-| V1-17 | Ollama model config per task | 🟡 TODO |
-| V1-15 | Prompt versioning | 🟡 TODO |
-| V1-04 | Incremental wiki updates | 🟡 TODO |
+| V1-01 | CI/CD hooks (language-agnostic) | ✅ Done |
+| V1-13 | Config validation (Zod) | ✅ Done |
+| V1-07 | Function-level call graph in SQLite | ✅ Done (JS/TS first pass) |
+| V1-11 | LLM call logging | ✅ Done |
+| V1-17 | Ollama model config per task | ✅ Done |
+| V1-15 | Prompt versioning | ✅ Done |
+| V1-04 | Incremental wiki updates | 🟡 Partial |
 
 ---
 
@@ -35,7 +35,7 @@
 ---
 
 ### [V1-01] CI/CD Strategy — Language-Agnostic Hook System
-**Status:** 🔴 TODO
+**Status:** ✅ Done
 **Priority:** Must-have — Husky requires `package.json`, so loom-memory post-commit hooks silently fail on Python, Rust, Go, PHP, and any non-JS repo.
 
 **Decision:** Do NOT use Husky. Ship a language-agnostic strategy:
@@ -66,7 +66,7 @@ git commit --amend --no-edit --no-verify 2>/dev/null || true
 ---
 
 ### [V1-13] Config Validation with Zod
-**Status:** 🟡 TODO
+**Status:** ✅ Done
 **Priority:** Important — `graph-rag.config.js` is freeform. A typo like `provider: "openai "` (trailing space) silently falls back to wrong behavior with no error.
 
 **Schema to enforce:**
@@ -94,7 +94,7 @@ git commit --amend --no-edit --no-verify 2>/dev/null || true
 ---
 
 ### [V1-07] Function-Level Call Graph in SQLite
-**Status:** 🟡 TODO
+**Status:** ✅ Done (JS/TS first pass)
 **Priority:** High — currently `05-Call-Graph.md` is LLM-generated text. The graph DB has no function→function call data. MCP cannot answer "who calls `processPayment()`?".
 
 **Schema addition:**
@@ -129,7 +129,7 @@ CREATE TABLE calls (
 ---
 
 ### [V1-11] LLM Call Logging
-**Status:** 🟡 TODO
+**Status:** ✅ Done
 **Priority:** Important — LLM calls fail silently, no record of tokens used, cost, or errors.
 
 **Log entry format** (`_graph/runs.jsonl`):
@@ -155,7 +155,7 @@ CREATE TABLE calls (
 ---
 
 ### [V1-17] Ollama Model Configuration Per Task
-**Status:** 🟡 TODO
+**Status:** ✅ Done
 **Priority:** Medium — `qwen2.5-coder:7b` is hardcoded. Users with more RAM want `14b`. Users with less want `3b`.
 
 **Config shape:**
@@ -178,7 +178,7 @@ llm: {
 ---
 
 ### [V1-15] Prompt Versioning
-**Status:** 🟡 TODO
+**Status:** ✅ Done
 **Priority:** Medium — when `prompts/wiki.md` changes, previously generated wiki files silently become inconsistent.
 
 **Implementation:**
@@ -202,8 +202,10 @@ loom_version: "1.2.0"
 ---
 
 ### [V1-04] Incremental Wiki Updates
-**Status:** 🟡 TODO
+**Status:** 🟡 Partial
 **Priority:** Core promise — "living wiki" — currently `_wiki/00–04.md` go stale after init. Only the call graph appends incrementally.
+
+**Current implementation:** `loom-memory update` rebuilds the graph, refreshes local maps, logs LLM calls, and appends changed-file call graph notes. Prompt hashes now let `status` detect stale generated pages. The missing piece is still section-level replacement inside `_wiki/00–04.md`.
 
 **Goal:** `loom-memory update` detects which wiki sections are affected by changed files and regenerates only those sections.
 
@@ -225,13 +227,9 @@ loom_version: "1.2.0"
 
 | Priority | Task | Why this order |
 |---|---|---|
-| 1 | V1-01 CI/CD hooks | Blocking — hooks are broken for non-JS repos |
-| 2 | V1-13 Config validation | Unblocks V1-17; stops silent misconfiguration |
-| 3 | V1-11 LLM logging | Low effort, high observability value |
-| 4 | V1-17 Model config | Depends on V1-13 |
-| 5 | V1-07 Call graph SQLite | Core feature, builds on existing TS parser |
-| 6 | V1-15 Prompt versioning | Wiki integrity |
-| 7 | V1-04 Incremental wiki | Core promise, most complex remaining task |
+| 1 | V1-04 Incremental wiki section replacement | Last incomplete V1 promise |
+| 2 | Broaden tests around published-package install | Confirms standalone UX |
+| 3 | Import-aware call graph resolution | Improves precision of V1-07 |
 
 ---
 

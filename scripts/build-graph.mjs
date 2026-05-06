@@ -8,14 +8,19 @@ import { join, relative, extname, dirname } from 'path';
 import { getParser, getAllExtensions } from './parsers/index.mjs';
 import { loadLoomIgnore } from '../src/utils/loomignore.js';
 import { parseFile, isTsFile } from '../src/parser/ts-parser.js';
+import { loadConfig } from '../src/config.js';
 
 const ROOT = process.cwd();
-const DB_PATH = './_graph/codebase.db';
+const config = await loadConfig(ROOT);
+const GRAPH_DIR = config.output?.graph || '_graph';
+const DB_PATH = `./${GRAPH_DIR}/codebase.db`;
+const parsedCache = new Map();
 
-mkdirSync('./_graph', { recursive: true });
+mkdirSync(GRAPH_DIR, { recursive: true });
 const db = new Database(DB_PATH);
 
 db.exec(`
+    DROP TABLE IF EXISTS calls;
     DROP TABLE IF EXISTS imports;
     DROP TABLE IF EXISTS symbols;
     DROP TABLE IF EXISTS files;
@@ -40,12 +45,23 @@ db.exec(`
                              name TEXT NOT NULL,
                              file TEXT NOT NULL REFERENCES files(path)
     );
+
+    CREATE TABLE calls (
+                           id INTEGER PRIMARY KEY AUTOINCREMENT,
+                           caller_file TEXT NOT NULL,
+                           caller_symbol TEXT NOT NULL,
+                           callee_file TEXT,
+                           callee_symbol TEXT NOT NULL,
+                           line INTEGER
+    );
 `);
 
 const insertFile   = db.prepare(`INSERT OR IGNORE INTO files (path, zone, lang, symbols) VALUES (?, ?, ?, ?)`);
 const getFileId    = db.prepare(`SELECT id FROM files WHERE path = ?`);
 const insertImport = db.prepare(`INSERT OR IGNORE INTO imports (importer_id, importee_id) VALUES (?, ?)`);
 const insertSymbol = db.prepare(`INSERT INTO symbols (name, file) VALUES (?, ?)`);
+const insertCall   = db.prepare(`INSERT INTO calls (caller_file, caller_symbol, callee_file, callee_symbol, line) VALUES (?, ?, ?, ?, ?)`);
+const findSymbol   = db.prepare(`SELECT file FROM symbols WHERE name = ? LIMIT 1`);
 
 // ── auto-detect zones from filesystem ─────────────────────────────────────
 function detectZone(filePath) {
@@ -108,7 +124,7 @@ const build = db.transaction((files) => {
 
         if (isTsFile(file)) {
             try {
-                const parsed = parseFile(file);
+                const parsed = parseTs(file);
                 const lang   = extname(file).replace('.', '');
                 insertFile.run(rel, zone, lang, parsed.symbols.join(','));
                 for (const sym of parsed.symbols) insertSymbol.run(sym, rel);
@@ -137,7 +153,7 @@ const build = db.transaction((files) => {
 
         if (isTsFile(file)) {
             try {
-                importPaths = parseFile(file).imports;
+                importPaths = parseTs(file).imports;
             } catch {
                 continue;
             }
@@ -156,6 +172,23 @@ const build = db.transaction((files) => {
             insertImport.run(fromId, toId);
         }
     }
+
+    // Pass 3 — insert function call sites for TS/JS family
+    for (const file of files) {
+        if (!isTsFile(file)) continue;
+        const rel = relative(ROOT, file);
+        let parsed;
+        try {
+            parsed = parseTs(file);
+        } catch {
+            continue;
+        }
+
+        for (const call of parsed.calls) {
+            const resolved = findSymbol.get(call.callee)?.file ?? null;
+            insertCall.run(rel, call.caller, resolved, call.callee, call.line);
+        }
+    }
 });
 
 build(files);
@@ -163,6 +196,12 @@ build(files);
 const fc = db.prepare('SELECT COUNT(*) as c FROM files').get().c;
 const ic = db.prepare('SELECT COUNT(*) as c FROM imports').get().c;
 const sc = db.prepare('SELECT COUNT(*) as c FROM symbols').get().c;
+const cc = db.prepare('SELECT COUNT(*) as c FROM calls').get().c;
 
-console.log(`✅ Graph built: ${fc} files, ${ic} import edges, ${sc} symbols`);
+console.log(`✅ Graph built: ${fc} files, ${ic} import edges, ${sc} symbols, ${cc} calls`);
 db.close();
+
+function parseTs(file) {
+    if (!parsedCache.has(file)) parsedCache.set(file, parseFile(file));
+    return parsedCache.get(file);
+}

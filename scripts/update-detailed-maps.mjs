@@ -5,11 +5,17 @@
 import { readFileSync, writeFileSync, mkdirSync,
     readdirSync, statSync, existsSync }  from 'fs';
 import { join, extname, relative }           from 'path';
-import { chat, provider, model }             from './llm.mjs';
+import { chat, provider, model }             from './llm.js';
 import { getAllExtensions }                  from './parsers/index.mjs';
+import { loadConfig }                        from '../src/config.js';
 
-const ROOT       = process.cwd();
-const OUTPUT_DIR = '_wiki/maps/detailed';
+const args = process.argv.slice(2);
+const targetIdx = args.indexOf('--target');
+const ROOT       = targetIdx !== -1 ? args[targetIdx + 1] : process.cwd();
+const silent     = args.includes('--silent');
+const log        = (...msg) => { if (!silent) console.log(...msg); };
+const config     = await loadConfig(ROOT);
+const OUTPUT_DIR = join(ROOT, config.output?.wiki || '_wiki', 'maps/detailed');
 const MAX_CHARS  = 80_000;
 
 const ALL_EXTENSIONS = getAllExtensions();
@@ -19,37 +25,7 @@ const IGNORE = [
     '__tests__', 'vendor', '__pycache__', '.venv', '_graph', '_wiki',
 ];
 
-// ── load config ───────────────────────────────────────────────────────────────
-let userConfig = {};
-try {
-    const mod  = await import(`${ROOT}/graph-rag.config.js`);
-    userConfig = mod.default ?? {};
-} catch {}
-
-// ── build zones (same logic as update-code-map) ───────────────────────────────
-function autoDetectZones() {
-    const zones = [];
-    for (const r of ['apps', 'packages', 'services', 'libs']) {
-        const abs = join(ROOT, r);
-        if (!existsSync(abs)) continue;
-        for (const entry of readdirSync(abs, { withFileTypes: true })) {
-            if (!entry.isDirectory()) continue;
-            zones.push({ name: `${r}/${entry.name}`, path: join(r, entry.name) });
-        }
-    }
-    if (existsSync(join(ROOT, 'src'))) zones.push({ name: 'src', path: 'src' });
-    return zones;
-}
-
-function buildZones() {
-    if (!userConfig.zones) return autoDetectZones();
-    return Object.entries(userConfig.zones).map(([name, val]) => ({
-        name,
-        path: typeof val === 'string' ? val : val.path,
-    }));
-}
-
-const ZONES = buildZones();
+const ZONES = config.zones;
 
 // ── file helpers ──────────────────────────────────────────────────────────────
 function collectFiles(dir, files = []) {
@@ -120,17 +96,17 @@ ${bundle}`;
 
 // ── process ───────────────────────────────────────────────────────────────────
 async function processZone(zone) {
-    console.log(`\n🔍 Zone: ${zone.name}`);
+    log(`\nZone: ${zone.name}`);
 
     const files = collectFiles(join(ROOT, zone.path));
-    console.log(`   ${files.length} files`);
+    log(`   ${files.length} files`);
 
     if (files.length === 0) {
-        console.log(`   ⚠️  Skipping — no files found`);
+        log(`   Skipping — no files found`);
         return;
     }
 
-    console.log(`   🤖 Calling ${provider}...`);
+    log(`   Calling ${provider}...`);
     const result  = await chat(buildPrompt(zone, files));
     const outPath = join(OUTPUT_DIR, `${zone.name.replace('/', '-')}.detailed.md`);
 
@@ -139,7 +115,7 @@ async function processZone(zone) {
         outPath,
         `# ${zone.name} — Detailed Map\n_Auto-generated ${new Date().toISOString()} — ${provider}/${model}_\n\n${result}`,
     );
-    console.log(`   ✅ → ${outPath}`);
+    log(`   updated → ${outPath}`);
 }
 
 function updateIndex() {
@@ -162,18 +138,18 @@ function updateIndex() {
 
 async function main() {
     mkdirSync(OUTPUT_DIR, { recursive: true });
-    console.log(`\n📚 Detailed Maps — provider: ${provider} — model: ${model}\n`);
+    log(`\nDetailed Maps — provider: ${provider} — model: ${model}\n`);
 
     for (const zone of ZONES) {
         try {
             await processZone(zone);
         } catch (err) {
-            console.error(`  ❌ ${zone.name}: ${err.message}`);
+            console.error(`  ${zone.name}: ${err.message}`);
         }
     }
 
     updateIndex();
-    console.log('\n🎉 Done!\n');
+    log('\nDone\n');
 }
 
 main().catch(err => { console.error('Fatal error:', err); process.exit(1); });

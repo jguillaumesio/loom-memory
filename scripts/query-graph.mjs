@@ -72,6 +72,38 @@ const queries = {
         FROM symbols
         WHERE name LIKE ?
     `).all(`%${name}%`),
+
+  callers: (name) => db.prepare(`
+        SELECT caller_file, caller_symbol, callee_file, callee_symbol, line
+        FROM calls
+        WHERE callee_symbol LIKE ?
+        ORDER BY caller_file, line
+    `).all(`%${name}%`),
+
+  callees: (name) => db.prepare(`
+        SELECT caller_file, caller_symbol, callee_file, callee_symbol, line
+        FROM calls
+        WHERE caller_symbol LIKE ?
+        ORDER BY caller_file, line
+    `).all(`%${name}%`),
+
+  unused: () => db.prepare(`
+        SELECT s.name, s.file
+        FROM symbols s
+        LEFT JOIN calls c ON c.callee_file = s.file AND c.callee_symbol = s.name
+        WHERE c.id IS NULL
+        ORDER BY s.file, s.name
+    `).all(),
+
+  cycles: () => db.prepare(`
+        SELECT a.path AS file_a, b.path AS file_b
+        FROM imports ab
+        JOIN imports ba ON ba.importer_id = ab.importee_id AND ba.importee_id = ab.importer_id
+        JOIN files a ON a.id = ab.importer_id
+        JOIN files b ON b.id = ab.importee_id
+        WHERE a.path < b.path
+        ORDER BY a.path, b.path
+    `).all(),
 };
 
 const [,, command, ...args] = process.argv;
@@ -89,6 +121,10 @@ Commands:
   deps <file>           What a file imports
   dependents <file>     What imports a file
   symbol <name>         Find where a symbol is exported
+  callers <name>        Find functions that call a symbol
+  callees <name>        Find functions called by a symbol
+  unused                Exported symbols with zero internal callers
+  cycles                Simple file-level circular dependencies
 `);
   process.exit(0);
 }

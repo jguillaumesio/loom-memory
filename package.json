@@ -4,7 +4,8 @@
   "type": "module",
   "main": "index.js",
   "bin": {
-    "wiki-tool": "./bin/wiki.mjs"
+    "loom-memory": "./bin/cli.js",
+    "wiki-tool": "./bin/cli.js"
   },
   "scripts": {
     "prepare": "husky",
@@ -13,6 +14,7 @@
     "detailed": "node scripts/update-detailed-maps.mjs",
     "graph": "node scripts/build-graph.mjs",
     "graph:query": "node scripts/query-graph.mjs",
+    "test": "node --test",
     "all": "npm run graph && npm run update && npm run detailed"
   },
   "dependencies": {

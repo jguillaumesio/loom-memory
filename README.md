@@ -1,151 +1,206 @@
-# graph-rag
+# loom-memory
 
-Drop it on any repo. One command builds a living knowledge base that keeps itself current after every commit.
+Persistent repository memory for AI coding agents.
 
-## What it generates
+`loom-memory` turns a Git repository into a living knowledge base: architecture notes, code maps, import graphs, agent instructions, and MCP tools that help small and large models understand a codebase without rereading everything on every task.
 
-### Wiki (LLM-generated, injected into target repo)
-- `_wiki/00-Index.md` — project overview and architecture summary
-- `_wiki/01-Architecture-Stack.md` — tech stack, data flow, infrastructure
-- `_wiki/02-Fonctionnalites-Actuelles.md` — existing features inventory
-- `_wiki/03-Regles-LLM.md` — coding rules extracted from the codebase
-- `_wiki/04-Code-Map.md` — per-zone function and file map (incremental)
-- `_wiki/05-Call-Graph.md` — dependency call graph
-- `_wiki/maps/<zone>.map.md` — detailed per-zone maps (api, dashboard, admin, packages)
+The goal is simple: give AI agents durable context, reduce token spend, and make every session start from accumulated project knowledge instead of a cold read.
 
-### Graph database (static analysis)
-- `_graph/codebase.db` — SQLite graph: files, import edges, exported symbols
+## Why I Built This
 
-### Agent config (injected into target repo root)
-- `AGENTS.md` — session start checklist, project structure, hard rules, session end ritual
-- `.cursor/mcp.json` — MCP server config so agents can query the graph live
-- `mcp.json` — same, for Claude Desktop
-- `docs/decisions.md` — scaffolded, append patterns after each task
-- `docs/pitfalls.md` — scaffolded, append mistakes and false assumptions
+AI coding tools are powerful, but most of them are forgetful. They repeatedly scan the same files, miss project-specific conventions, and lose useful lessons between sessions.
 
-### Self-improvement hook
-- `.husky/post-commit` — rebuilds graph + refreshes changed zone maps after every commit
+I built `loom-memory` to explore a more durable workflow:
 
----
+- static analysis creates a local SQLite graph of files, imports, and symbols
+- generated wiki pages explain architecture, current features, and coding rules
+- agent instructions capture project-specific rituals, pitfalls, and decisions
+- MCP exposes repository knowledge to compatible AI tools
+- post-commit hooks keep the knowledge base moving with the code
 
-## Setup
+This project reflects how I like to work as a programmer: practical automation, local-first tooling, clear developer experience, and systems that help both humans and agents reason with less waste.
+
+## What It Generates
+
+After initialization, a target repository can contain:
+
+```text
+_wiki/
+  00-Index.md
+  01-Architecture-Stack.md
+  02-Fonctionnalites-Actuelles.md
+  03-Regles-LLM.md
+  04-Code-Map.md
+  05-Call-Graph.md
+  maps/
+
+_graph/
+  codebase.db
+
+AGENTS.md
+docs/
+  decisions.md
+  pitfalls.md
+```
+
+The SQLite database currently stores:
+
+- indexed files
+- detected zones
+- language metadata
+- exported symbols
+- import relationships
+
+The MCP server currently exposes:
+
+- `find_symbol`
+- `find_dependencies`
+- `find_dependents`
+- `hotspots`
+- `cross_zone_deps`
+
+## Current Status
+
+This repository is an alpha prototype with a working standalone CLI surface. The core external-repository flow is now wired, but the generated wiki still needs deeper section-level incremental updates before the "living wiki" promise is complete.
+
+What works today:
+
+- repository packing with Repomix
+- LLM-generated wiki pages
+- TypeScript/JavaScript AST parsing for imports and exported symbols
+- regex-based parsers for Python, PHP, and Ruby
+- SQLite graph generation
+- function-call extraction for JavaScript and TypeScript
+- MCP query server for graph lookups
+- `.loomignore` support
+- managed `AGENTS.md` block updates
+- raw Git post-commit hook installation
+- optional GitHub Actions workflow generation
+- LLM call logging to `_graph/runs.jsonl`
+- prompt metadata for generated wiki freshness checks
+- basic doctor and status commands
+- fixture-based Node tests
+
+What still needs work:
+
+- generated wiki pages are not yet surgically updated section by section
+- Python, PHP, and Ruby parsing is still regex-based and should move to Tree-sitter
+- call graph resolution is useful but still name-based, so overloaded/common names can need refinement
+- the npm package should be published and tested from a clean global install
+- MCP config is generated, but more assistant-specific presets could be added
+
+## Installation
+
+For local development:
 
 ```bash
-npm install -g graph-rag
+npm install
 ```
 
-Set your LLM API key (used for wiki and AGENTS.md generation):
+Use the local CLI:
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...   # preferred — Claude handles large contexts better
-# or
-export OPENAI_API_KEY=sk-...          # fallback — GPT-4o
+node bin/cli.js --help
+node bin/cli.js init ./path/to/repo
+node bin/cli.js update ./path/to/repo
+node bin/cli.js status ./path/to/repo
+node bin/cli.js doctor ./path/to/repo
 ```
 
-The graph build and zone maps run locally via **Ollama** (`qwen2.5-coder:7b` by default).  
-Install Ollama if you want those: https://ollama.com
-
----
-
-## Usage
+After publishing or linking the package, the command is:
 
 ```bash
-# Full init — run once per repo
-graph-rag init ./path/to/repo
-
-# Skip repomix packing if repomix-output.xml already exists
-graph-rag init ./path/to/repo --skip-repomix
-
-# Skip installing Husky hooks
-graph-rag init ./path/to/repo --no-hooks
-
-# Incremental update — reruns only changed zones
-graph-rag update ./path/to/repo
-
-# Install self-improvement hooks on an existing repo
-graph-rag install-hooks ./path/to/repo
+loom-memory init ./path/to/repo
+loom-memory update ./path/to/repo
+loom-memory status ./path/to/repo
+loom-memory doctor ./path/to/repo
 ```
 
----
+Build the graph for this repository:
 
-## How it works
-
-### `init` — full run
-
-```
-1. build-graph.mjs        Static analysis → _graph/codebase.db
-                          Files, import edges, exported symbols
-
-2. repomix                Pack entire repo → repomix-output.xml
-
-3. LLM (Claude / GPT-4o)  Wiki files → _wiki/00 to 05
-                          AGENTS.md → repo root (template-based, not freeform)
-
-4. Ollama (local)         Per-zone code maps → _wiki/maps/
-
-5. MCP config             .cursor/mcp.json + mcp.json
-
-6. Husky hook             .husky/post-commit → auto self-improvement
+```bash
+npm run graph
 ```
 
-### `post-commit` — self-improvement loop
+Query the graph:
 
-Every commit triggers:
-
-```
-build-graph.mjs           Rebuild SQLite graph (~2s, pure static)
-update-code-map.mjs       Detect changed zones via git diff, regenerate only those
-update-detailed-maps.mjs  Same for detailed maps
-git add _wiki/ _graph/    Stage updated docs automatically
+```bash
+npm run graph:query -- hotspots
+npm run graph:query -- symbol runInit
+npm run graph:query -- deps src/commands/init.js
+npm run graph:query -- callers callLLM
 ```
 
-AI sessions always read a fresh knowledge base. Zero manual effort.
+## Intended CLI
 
----
+The product interface is:
 
-## MCP tools (available to agents after init)
-
-The `graph-mcp.mjs` server exposes these tools via MCP:
-
-| Tool | Description |
-|---|---|
-| `find_symbol` | Find where a symbol is defined (partial name ok) |
-| `find_dependencies` | All files a given file imports |
-| `find_dependents` | All files that import a given file |
-| `hotspots` | Most imported files — architectural hotspots |
-| `cross_zone_deps` | Dependencies crossing app/package boundaries |
-
-Agents use these instead of guessing file locations.
-
----
-
-## Requirements
-
-| Tool | Purpose | Required |
-|---|---|---|
-| `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` | Wiki + AGENTS.md generation | ✅ One of the two |
-| Ollama + `qwen2.5-coder:7b` | Zone maps (local) | Optional |
-| Git | Incremental updates, Husky hooks | Optional but recommended |
-| Node 18+ | Runtime | ✅ |
-
----
-
-## Output after `graph-rag init`
-
+```bash
+loom-memory init ./path/to/repo
+loom-memory update ./path/to/repo
+loom-memory status ./path/to/repo
+loom-memory doctor ./path/to/repo
+loom-memory install-hooks ./path/to/repo
 ```
-✓ Graph built: 847 files, 3241 import edges  → _graph/codebase.db
-✓ Repository packed (124k tokens)            → repomix-output.xml
-✓ Generated _wiki/00-Index.md
-✓ Generated _wiki/01-Architecture-Stack.md
-✓ Generated _wiki/02-Fonctionnalites-Actuelles.md
-✓ Generated _wiki/03-Regles-LLM.md
-✓ Generated _wiki/04-Code-Map.md
-✓ Generated _wiki/05-Call-Graph.md
-✓ Generated AGENTS.md                        → repo root
-✓ MCP config written                         → .cursor/mcp.json
-✓ Husky hooks installed                      → .husky/post-commit
-✓ docs/decisions.md scaffolded
-✓ docs/pitfalls.md scaffolded
 
-Ready. Every commit keeps the knowledge base current.
+The legacy `wiki-tool` binary is kept as an alias for compatibility, but `loom-memory` is the primary command.
+
+## Architecture
+
+```text
+bin/
+  cli.js                 Commander-based packaged CLI
+  wiki.mjs               Legacy wrapper, no longer the packaged entrypoint
+
+src/
+  commands/              init, update, status, doctor, hook installation
+  parser/                TypeScript compiler API parser
+  utils/                 gitignore, loomignore, Ollama, managed blocks
+  llm.js                 Anthropic/OpenAI wiki generation
+  repomix.js             repository packing
+
+scripts/
+  build-graph.mjs        builds _graph/codebase.db, including function calls
+  graph-mcp.mjs          MCP server over the SQLite graph
+  query-graph.mjs        local graph query CLI
+  update-code-map.mjs    zone map generation through Ollama
+  update-detailed-maps.mjs
 ```
+
+The project is intentionally stack agnostic. JavaScript and TypeScript get the most accurate parsing today, while Python, PHP, and Ruby have lightweight regex parsers that are useful but not yet production-grade.
+
+## Roadmap
+
+The next milestones are:
+
+1. Implement true section-level incremental wiki updates.
+2. Improve call graph resolution with import-aware symbol binding.
+3. Replace regex parsers for Python, PHP, and Ruby with Tree-sitter parsers.
+4. Add more fixture repositories across mixed stacks.
+5. Publish and test from a clean global install.
+6. Add semantic search with local embeddings and SQLite vector search.
+
+## Design Principles
+
+- Local-first: repository knowledge should live with the repository.
+- Stack agnostic: useful across JavaScript, Python, PHP, Ruby, and mixed codebases.
+- Small-model friendly: compress repeated context into reusable maps and graph queries.
+- Agent friendly: expose facts through MCP instead of forcing agents to guess.
+- Human readable: generated memory should be useful in a normal editor, not only through a tool.
+- Self improving: decisions and pitfalls should accumulate as the codebase evolves.
+
+## About The Programmer
+
+I am Guillaume, a programmer focused on pragmatic AI tooling, developer experience, and systems that make software teams faster without making their workflows heavier.
+
+`loom-memory` is the kind of work I enjoy most: taking an ambiguous developer problem, reducing it to useful primitives, and building a tool that connects static analysis, LLMs, local automation, and everyday Git workflows.
+
+If you are evaluating me for engineering work, this project shows how I think:
+
+- I care about practical developer workflows, not demos that only work once.
+- I design for real repositories with mixed stacks and imperfect conventions.
+- I use automation to preserve context, reduce repetition, and improve feedback loops.
+- I prefer clear architecture and inspectable data over opaque magic.
+- I am comfortable connecting CLIs, SQLite, MCP, LLM APIs, local models, and Git hooks.
+
+The project is still in progress, but the ambition is production-minded: persistent memory that helps AI agents become better collaborators on long-lived codebases.
