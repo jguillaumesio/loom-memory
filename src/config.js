@@ -53,11 +53,11 @@ const DEFAULTS = {
     provider: process.env.LLM_PROVIDER || (process.env.ANTHROPIC_API_KEY ? 'anthropic' : process.env.OPENAI_API_KEY ? 'openai' : 'ollama'),
     model: process.env.LLM_MODEL || 'qwen2.5-coder:7b',
     models: {
-      wiki: process.env.LLM_MODEL || 'claude-sonnet-4-5',
-      agents: process.env.LLM_MODEL || 'claude-sonnet-4-5',
+      wiki: process.env.LLM_MODEL || 'qwen2.5vl:7b',
+      agents: process.env.LLM_MODEL || 'qwen2.5-coder:7b',
       zoneMaps: process.env.OLLAMA_MODEL || 'qwen2.5-coder:7b',
       detailedMaps: process.env.OLLAMA_MODEL || 'qwen2.5-coder:7b',
-      callGraph: process.env.LLM_MODEL || 'claude-sonnet-4-5',
+      callGraph: process.env.LLM_MODEL || 'qwen2.5-coder:7b',
     },
   },
   ollama: {

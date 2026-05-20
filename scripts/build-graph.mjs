@@ -3,10 +3,11 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const Database = require('better-sqlite3');
 
-import { readFileSync, readdirSync, statSync, mkdirSync } from 'fs';
+import { readFileSync, statSync, mkdirSync } from 'fs';
 import { join, relative, extname, dirname } from 'path';
 import { getParser, getAllExtensions } from './parsers/index.mjs';
 import { loadLoomIgnore } from '../src/utils/loomignore.js';
+import { getIndexableFiles } from '../src/utils/file-discovery.js';
 import { parseFile, isTsFile } from '../src/parser/ts-parser.js';
 import { loadConfig } from '../src/config.js';
 
@@ -74,22 +75,6 @@ function detectZone(filePath) {
     return parts[0];
 }
 
-// ── walk files, pick parser by extension ──────────────────────────────────
-const ALL_EXTENSIONS = getAllExtensions();
-
-function getAllFiles(dir, ig) {
-    const results = [];
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        if (entry.name.startsWith('.')) continue;
-        const full = join(dir, entry.name);
-        const rel = relative(ROOT, full);
-        if (ig.ignores(rel)) continue;
-        if (entry.isDirectory()) results.push(...getAllFiles(full, ig));
-        else if (ALL_EXTENSIONS.includes(extname(entry.name))) results.push(full);
-    }
-    return results;
-}
-
 // ── resolve import path to actual file ────────────────────────────────────
 const TS_RESOLVE_EXTS = [
     '', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
@@ -113,7 +98,7 @@ function resolveImport(fromFile, importPath, parser) {
 
 // ── build ─────────────────────────────────────────────────────────────────
 const ig = loadLoomIgnore(ROOT);
-const files = getAllFiles(ROOT, ig);
+const files = getIndexableFiles(ROOT, ig, { extensions: new Set(getAllExtensions()) });
 console.log(`📂 Found ${files.length} files`);
 
 const build = db.transaction((files) => {

@@ -32,3 +32,70 @@ export function main() {
   db.close();
 });
 
+test('status uses the same dot-directory discovery rules as graph build', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'loom-status-'));
+  fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(dir, '.agent/src'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'src/main.ts'), `export function main() { return true; }\n`);
+  fs.writeFileSync(path.join(dir, '.agent/src/App.tsx'), `export function App() { return null; }\n`);
+
+  execFileSync(process.execPath, [path.join(root, 'scripts/build-graph.mjs')], {
+    cwd: dir,
+    stdio: 'ignore',
+  });
+
+  const output = execFileSync(process.execPath, [path.join(root, 'bin/cli.js'), 'status', dir], {
+    cwd: root,
+    encoding: 'utf8',
+  });
+
+  assert.match(output, /Index is up to date/);
+  assert.doesNotMatch(output, /\.agent/);
+});
+
+test('query graph defaults to exact symbols and quieter unused exports', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'loom-query-'));
+  fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'src/User.ts'), `export function User() { return true; }\n`);
+  fs.writeFileSync(path.join(dir, 'src/UserProfile.ts'), `export function UserProfile() { return true; }\n`);
+  fs.writeFileSync(path.join(dir, 'src/default.ts'), `export default function Thing() { return true; }\n`);
+  fs.writeFileSync(path.join(dir, 'src/index.ts'), `export { User } from './User';\n`);
+  fs.writeFileSync(path.join(dir, 'src/main.ts'), `
+import { User } from './User';
+export function main() {
+  return User();
+}
+`);
+
+  execFileSync(process.execPath, [path.join(root, 'scripts/build-graph.mjs')], {
+    cwd: dir,
+    stdio: 'ignore',
+  });
+
+  const exact = JSON.parse(execFileSync(process.execPath, [path.join(root, 'scripts/query-graph.mjs'), 'symbol', 'User'], {
+    cwd: dir,
+    encoding: 'utf8',
+  }));
+  assert.ok(exact.some((row) => row.name === 'User' && row.file === 'src/User.ts'));
+  assert.ok(exact.every((row) => row.name === 'User'));
+
+  const fuzzy = JSON.parse(execFileSync(process.execPath, [path.join(root, 'scripts/query-graph.mjs'), 'symbol', 'User', '--fuzzy'], {
+    cwd: dir,
+    encoding: 'utf8',
+  }));
+  assert.ok(fuzzy.some((row) => row.name === 'UserProfile'));
+
+  const unused = JSON.parse(execFileSync(process.execPath, [path.join(root, 'scripts/query-graph.mjs'), 'unused'], {
+    cwd: dir,
+    encoding: 'utf8',
+  }));
+  assert.ok(unused.some((row) => row.name === 'UserProfile'));
+  assert.ok(unused.every((row) => row.name !== 'default'));
+  assert.ok(unused.every((row) => !row.file.endsWith('/index.ts')));
+
+  const allUnused = JSON.parse(execFileSync(process.execPath, [path.join(root, 'scripts/query-graph.mjs'), 'unused', '--all'], {
+    cwd: dir,
+    encoding: 'utf8',
+  }));
+  assert.ok(allUnused.some((row) => row.file === 'src/index.ts'));
+});

@@ -6,6 +6,8 @@ import ora from 'ora'
 import chalk from 'chalk'
 import { callLLM } from '../llm.js'
 import { loadConfig } from '../config.js'
+import { parseWikiFiles } from '../wiki-parser.js'
+import { replaceSection } from '../utils/wiki-section.js'
 
 function taskSpinner(label, silent) {
     if (!silent) return ora(label).start()
@@ -47,6 +49,25 @@ function readChangedContent(repoPath, files) {
         .join('\n\n')
 }
 
+function loadPrompt(name) {
+    const p = new URL(`../../prompts/${name}.md`, import.meta.url)
+    return fs.readFileSync(p, 'utf-8')
+}
+
+export function zoneSectionId(zoneName) {
+    return `zone-${zoneName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'root'}`
+}
+
+export function affectedZones(changedFiles, zones) {
+    if (changedFiles.includes('*')) return zones
+    return zones.filter((zone) => changedFiles.some((file) => file === zone.path || file.startsWith(zone.path.replace(/\/$/, '') + '/')))
+}
+
+function filesForZone(changedFiles, zone) {
+    if (changedFiles.includes('*')) return []
+    return changedFiles.filter((file) => file === zone.path || file.startsWith(zone.path.replace(/\/$/, '') + '/'))
+}
+
 export async function runUpdate(repoPath, options) {
     const absPath = path.resolve(repoPath)
     const config = await loadConfig(absPath)
@@ -74,6 +95,8 @@ export async function runUpdate(repoPath, options) {
     if (!silent) console.log(chalk.dim(`Changed files: ${changedFiles.join(', ')}\n`))
 
     const changedContext = options.all ? '' : readChangedContent(absPath, changedFiles)
+
+    await updateWikiSections(absPath, wikiDir, config, changedFiles, silent)
 
     // Re-generate call graph for changed files only
     spinner = taskSpinner('Updating _wiki/05-Call-Graph.md for changed files...', silent)
@@ -108,6 +131,47 @@ ${changedContext}
     await runMapScripts(absPath, options, silent)
 
     if (!silent) console.log(chalk.bold.green('\nUpdate complete\n'))
+}
+
+async function updateWikiSections(absPath, wikiDir, config, changedFiles, silent) {
+    const zones = affectedZones(changedFiles, config.zones)
+    if (!zones.length || changedFiles.includes('*')) return
+
+    const promptTemplate = loadPrompt('wiki-section')
+    for (const zone of zones) {
+        const zoneFiles = filesForZone(changedFiles, zone)
+        const zoneContext = readChangedContent(absPath, zoneFiles)
+        const spinner = taskSpinner(`Updating wiki sections for ${zone.name}...`, silent)
+
+        try {
+            if (!zoneContext) throw new Error(`No readable changed files for ${zone.name}`)
+            const prompt = `${promptTemplate}
+
+Zone: ${zone.name}
+Path: ${zone.path}
+Description: ${zone.description || 'N/A'}
+Changed files: ${zoneFiles.join(', ')}
+`
+            const output = await callLLM(prompt, zoneContext, {
+                repoRoot: absPath,
+                config,
+                task: 'incremental-wiki-section',
+                zone: zone.name,
+                model: config.llm.models.wiki,
+            })
+            const files = parseWikiFiles(output)
+            const sectionId = zoneSectionId(zone.name)
+            const title = `Zone: ${zone.name}`
+
+            for (const [filename, content] of Object.entries(files)) {
+                if (!['01-Architecture-Stack.md', '02-Fonctionnalites-Actuelles.md', '03-Regles-LLM.md'].includes(filename)) continue
+                replaceSection(path.join(wikiDir, filename), sectionId, content, { title })
+            }
+            spinner.succeed(`Wiki sections updated for ${zone.name}`)
+        } catch (e) {
+            spinner.warn(`Wiki section update skipped for ${zone.name}: ${e.message}`)
+        }
+    }
 }
 
 async function runMapScripts(absPath, options, silent) {

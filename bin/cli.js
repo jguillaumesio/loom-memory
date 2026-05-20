@@ -19,6 +19,7 @@ program
     .option('--skip-repomix', 'Use existing repomix-output.xml')
     .option('--no-hooks', 'Skip installing Git hooks')
     .option('--github-action', 'Install a GitHub Actions workflow')
+    .option('--dry-run', 'Show planned initialization writes without changing the target repository')
     .action(runInit)
 
 program

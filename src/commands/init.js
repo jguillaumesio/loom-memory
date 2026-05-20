@@ -12,6 +12,7 @@ import { writeManagedBlock } from '../utils/managed-block.js'
 import { loadConfig } from '../config.js'
 import { installHooks } from './install-hooks.js'
 import { withWikiFrontmatter } from '../utils/wiki-frontmatter.js'
+import { listModels } from '../utils/ollama.js'
 
 function buildGraph(absPath) {
     const graphScript = new URL('../../scripts/build-graph.mjs', import.meta.url)
@@ -92,6 +93,18 @@ export async function runInit(repoPath, options) {
 
     console.log(chalk.bold.cyan('\nloom-memory init\n'))
     console.log(chalk.dim(`Target repo: ${absPath}\n`))
+
+    if (options.dryRun) {
+        printInitDryRun(absPath, config, options)
+        return
+    }
+
+    try {
+        await preflightLlm(absPath, config, options)
+    } catch (e) {
+        console.error(chalk.red('LLM preflight failed: ' + e.message))
+        process.exit(1)
+    }
 
     // ── Step 1: Static graph ─────────────────────────────────────────────────
     let spinner = ora('Building static graph...').start()
@@ -247,4 +260,67 @@ export async function runInit(repoPath, options) {
     console.log('  docs/decisions.md     ← scaffolded')
     console.log('  docs/pitfalls.md      ← scaffolded')
     console.log('')
+}
+
+async function preflightLlm(absPath, config, options) {
+    if (config.llm.provider !== 'ollama') return
+
+    const models = await listModels(config.ollama?.url ?? config.llm?.ollamaUrl)
+    const required = Array.from(new Set([
+        options.model,
+        config.llm.model,
+        config.ollama?.model,
+        ...Object.values(config.llm.models ?? {}),
+    ].filter(Boolean)))
+    const missing = required.filter((model) => !models.some((available) => available === model || available.split(':')[0] === model.split(':')[0]))
+
+    if (missing.length > 0) {
+        throw new Error(
+            `Missing Ollama model(s) for ${absPath}: ${missing.join(', ')}.\n` +
+            missing.map((model) => `Run \`ollama pull ${model}\`.`).join('\n')
+        )
+    }
+}
+
+function printInitDryRun(absPath, config, options) {
+    const planned = [
+        path.join(config.output.graph, 'codebase.db'),
+        path.join(config.output.wiki, '00-Index.md'),
+        path.join(config.output.wiki, '01-Architecture-Stack.md'),
+        path.join(config.output.wiki, '02-Fonctionnalites-Actuelles.md'),
+        path.join(config.output.wiki, '03-Regles-LLM.md'),
+        path.join(config.output.wiki, '04-Code-Map.md'),
+        path.join(config.output.wiki, '05-Call-Graph.md'),
+        'AGENTS.md',
+        'docs/decisions.md',
+        'docs/pitfalls.md',
+        '.gitignore',
+        '.loom-memory',
+        'mcp.json',
+        '.cursor/mcp.json',
+    ]
+
+    if (options.hooks !== false) planned.push('.git/hooks/post-commit')
+    if (options.githubAction) planned.push('.github/workflows/loom-memory.yml')
+
+    console.log(chalk.bold('Dry run only. No files will be written.\n'))
+    console.log(chalk.bold('Configuration'))
+    console.log(`  Provider: ${chalk.cyan(config.llm.provider)}`)
+    console.log(`  Default model: ${chalk.cyan(options.model || config.llm.model)}`)
+    console.log(`  Task models: ${chalk.cyan(JSON.stringify(config.llm.models))}`)
+    console.log(`  Wiki output: ${chalk.cyan(config.output.wiki)}`)
+    console.log(`  Graph output: ${chalk.cyan(config.output.graph)}`)
+    console.log(`  Zones: ${chalk.cyan(config.zones.map((z) => z.path).join(', '))}`)
+
+    console.log(chalk.bold('\nPlanned writes'))
+    for (const rel of planned) {
+        const exists = fs.existsSync(path.join(absPath, rel))
+        console.log(`  ${exists ? chalk.yellow('update') : chalk.green('create')} ${rel}`)
+    }
+
+    console.log(chalk.bold('\nPlanned work'))
+    console.log('  Build static graph')
+    console.log(options.skipRepomix ? '  Load existing repomix-output.xml' : '  Pack repository with Repomix')
+    console.log('  Generate wiki, code map, call graph, AGENTS.md')
+    console.log(options.hooks === false ? '  Skip Git hook installation' : '  Install Git post-commit hook')
 }

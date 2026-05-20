@@ -4,8 +4,7 @@ import chalk from 'chalk';
 import Database from 'better-sqlite3';
 import { loadLoomIgnore } from '../utils/loomignore.js';
 import { promptHash, readWikiFrontmatter } from '../utils/wiki-frontmatter.js';
-
-const INDEXED_EXTS = new Set(['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.py', '.php', '.rb']);
+import { getIndexableFiles } from '../utils/file-discovery.js';
 
 export async function statusCommand(repoPath = '.') {
   const repoRoot = path.resolve(repoPath);
@@ -136,21 +135,9 @@ function reportPromptFreshness(repoRoot) {
 
 function findNewFiles(repoRoot, indexedSet, ig) {
   const indexed = new Set(indexedSet);
-  const found = [];
-  walk(repoRoot, repoRoot, ig, (rel) => {
-    if (!indexed.has(rel)) found.push(rel);
-  });
-  return found;
-}
-
-function walk(root, dir, ig, onFile) {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const abs = path.join(dir, entry.name);
-    const rel = path.relative(root, abs);
-    if (ig.ignores(rel) || ig.ignores(rel + '/')) continue;
-    if (entry.isDirectory()) walk(root, abs, ig, onFile);
-    else if (entry.isFile() && INDEXED_EXTS.has(path.extname(entry.name))) onFile(rel);
-  }
+  return getIndexableFiles(repoRoot, ig)
+    .map((abs) => path.relative(repoRoot, abs))
+    .filter((rel) => !indexed.has(rel));
 }
 
 function formatBytes(n) {

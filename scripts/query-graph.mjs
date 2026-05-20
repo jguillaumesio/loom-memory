@@ -6,6 +6,13 @@ const Database = require('better-sqlite3');
 const DB_PATH = './_graph/codebase.db';
 const db = new Database(DB_PATH, { readonly: true });
 
+function matchSql(column, value, { fuzzy = false } = {}) {
+  return {
+    sql: fuzzy ? `${column} LIKE ?` : `${column} = ?`,
+    value: fuzzy ? `%${value}%` : value,
+  };
+}
+
 const queries = {
   hotspots: () => db.prepare(`
         SELECT f.path, f.zone, COUNT(*) as import_count
@@ -67,31 +74,45 @@ const queries = {
         WHERE b.path LIKE ?
     `).all(`%${filePath}%`),
 
-  symbol: (name) => db.prepare(`
+  symbol: (name, options = {}) => {
+    const match = matchSql('name', name, options);
+    return db.prepare(`
         SELECT name, file
         FROM symbols
-        WHERE name LIKE ?
-    `).all(`%${name}%`),
+        WHERE ${match.sql}
+    `).all(match.value);
+  },
 
-  callers: (name) => db.prepare(`
+  callers: (name, options = {}) => {
+    const match = matchSql('callee_symbol', name, options);
+    return db.prepare(`
         SELECT caller_file, caller_symbol, callee_file, callee_symbol, line
         FROM calls
-        WHERE callee_symbol LIKE ?
+        WHERE ${match.sql}
         ORDER BY caller_file, line
-    `).all(`%${name}%`),
+    `).all(match.value);
+  },
 
-  callees: (name) => db.prepare(`
+  callees: (name, options = {}) => {
+    const match = matchSql('caller_symbol', name, options);
+    return db.prepare(`
         SELECT caller_file, caller_symbol, callee_file, callee_symbol, line
         FROM calls
-        WHERE caller_symbol LIKE ?
+        WHERE ${match.sql}
         ORDER BY caller_file, line
-    `).all(`%${name}%`),
+    `).all(match.value);
+  },
 
-  unused: () => db.prepare(`
+  unused: (_arg, options = {}) => db.prepare(`
         SELECT s.name, s.file
         FROM symbols s
         LEFT JOIN calls c ON c.callee_file = s.file AND c.callee_symbol = s.name
         WHERE c.id IS NULL
+        ${options.all ? '' : `
+        AND s.name != 'default'
+        AND s.file NOT LIKE '%/index.%'
+        AND s.file NOT LIKE 'index.%'
+        `}
         ORDER BY s.file, s.name
     `).all(),
 
@@ -106,7 +127,13 @@ const queries = {
     `).all(),
 };
 
-const [,, command, ...args] = process.argv;
+const [,, command, ...rawArgs] = process.argv;
+const flags = new Set(rawArgs.filter((arg) => arg.startsWith('--')));
+const args = rawArgs.filter((arg) => !arg.startsWith('--'));
+const options = {
+  fuzzy: flags.has('--fuzzy'),
+  all: flags.has('--all'),
+};
 
 if (!command || !queries[command]) {
   console.log(`
@@ -125,10 +152,14 @@ Commands:
   callees <name>        Find functions called by a symbol
   unused                Exported symbols with zero internal callers
   cycles                Simple file-level circular dependencies
+
+Flags:
+  --fuzzy               Use partial matching for symbol/call queries
+  --all                 Include noisy default/barrel exports in unused
 `);
   process.exit(0);
 }
 
-const result = queries[command](...args);
+const result = queries[command](args[0], options);
 console.log(JSON.stringify(result, null, 2));
 db.close();

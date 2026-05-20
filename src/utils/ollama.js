@@ -17,6 +17,12 @@ async function rawFetch(path, init = {}, host = DEFAULT_HOST) {
   try {
     res = await fetch(`${host}${path}`, init);
   } catch (err) {
+    if (err.cause?.code === 'EPERM' || /EPERM|operation not permitted/i.test(err.message)) {
+      throw new OllamaError(
+        `Ollama is reachable only with additional local-network permission from this environment.`,
+        { hint: `Allow local network access, or retry outside the sandbox. Target host: ${host}.`, cause: err }
+      );
+    }
     if (err.cause?.code === 'ECONNREFUSED' || /ECONNREFUSED|fetch failed/i.test(err.message)) {
       throw new OllamaError(
         `Ollama is not reachable at ${host}.`,
