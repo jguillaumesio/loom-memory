@@ -58,6 +58,12 @@ The MCP server currently exposes:
 - `find_dependents`
 - `hotspots`
 - `cross_zone_deps`
+- `find_callers`
+- `find_callees`
+- `find_unused_exports`
+- `find_circular_deps`
+- `zone_summary`
+- `recent_changes`
 
 ## Current Status
 
@@ -81,6 +87,7 @@ What works today:
 - cached per-zone LLM outputs for resumable map generation
 - prompt metadata for generated wiki freshness checks
 - section-level incremental wiki updates for affected zones
+- compact graph context queries for zone summaries and recent changed files
 - basic doctor, status, and verify commands
 - packaged CLI smoke coverage
 - fixture-based Node tests
@@ -139,6 +146,8 @@ npm run graph:query -- hotspots
 npm run graph:query -- symbol runInit
 npm run graph:query -- deps src/commands/init.js
 npm run graph:query -- callers callLLM
+npm run graph:query -- zoneSummary src
+npm run graph:query -- recent --limit=10
 ```
 
 ## Intended CLI

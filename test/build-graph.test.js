@@ -100,6 +100,53 @@ export function main() {
   assert.ok(allUnused.some((row) => row.file === 'src/index.ts'));
 });
 
+test('query graph returns compact zone summaries and recent indexed changes', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'loom-context-'));
+  fs.mkdirSync(path.join(dir, 'apps/web/src'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'packages/core/src'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'packages/core/src/math.ts'), `
+export function add(a: number, b: number) {
+  return a + b;
+}
+`);
+  fs.writeFileSync(path.join(dir, 'apps/web/src/app.ts'), `
+import { add } from '../../../packages/core/src/math';
+export function render() {
+  return add(1, 2);
+}
+`);
+
+  execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+  execFileSync('git', ['add', '.'], { cwd: dir, stdio: 'ignore' });
+  execFileSync('git', ['-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.test', 'commit', '-m', 'fixture'], {
+    cwd: dir,
+    stdio: 'ignore',
+  });
+
+  execFileSync(process.execPath, [path.join(root, 'scripts/build-graph.mjs')], {
+    cwd: dir,
+    stdio: 'ignore',
+  });
+
+  const summary = JSON.parse(execFileSync(process.execPath, [path.join(root, 'scripts/query-graph.mjs'), 'zoneSummary', 'apps/web'], {
+    cwd: dir,
+    encoding: 'utf8',
+  }));
+  assert.equal(summary.length, 1);
+  assert.equal(summary[0].zone, 'apps/web');
+  assert.deepEqual(summary[0].dependencies, [{ zone: 'packages/core', count: 1 }]);
+  assert.ok(summary[0].exports.some((row) => row.name === 'render'));
+
+  const recent = JSON.parse(execFileSync(process.execPath, [path.join(root, 'scripts/query-graph.mjs'), 'recent', '--limit=1'], {
+    cwd: dir,
+    encoding: 'utf8',
+  }));
+  assert.equal(recent.length, 1);
+  assert.equal(recent[0].path, 'apps/web/src/app.ts');
+  assert.equal(recent[0].zone, 'apps/web');
+  assert.deepEqual(recent[0].symbols, ['render']);
+});
+
 test('build-graph resolves calls through import bindings instead of global names', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'loom-import-aware-'));
   fs.mkdirSync(path.join(dir, 'src/a'), { recursive: true });

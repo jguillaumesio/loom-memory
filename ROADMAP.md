@@ -31,6 +31,7 @@
 | V1-22 | Import-aware call graph resolution | ✅ Done |
 | V1-23 | Clean global install smoke script | ✅ Done |
 | V2-06 | AST Parsers for Python / PHP / Ruby | 🟡 Partial (Python/Ruby Tree-sitter, PHP fallback) |
+| V2-12 | MCP Tool Expansion | ✅ Done |
 | V2-16 | LLM Retry / Rate Limit Handling | ✅ Done |
 
 ---
@@ -283,7 +284,6 @@ Remaining future expansion: LLM-based claim verification for architecture/domain
 |---|---|---|
 | 1 | PHP Tree-sitter compatibility | Completes V2-06 parser expansion |
 | 2 | Semantic search / embeddings | Adds task-aware low-token retrieval |
-| 3 | PHP Tree-sitter compatibility | Completes V2-06 parser expansion |
 
 ---
 
@@ -313,7 +313,9 @@ Before calling any paid LLM API, compute approximate token count and display est
 Vitest suite with fixture repos (one per language). Each fixture has known imports/exports/calls. Tests assert graph output matches expected. Design around final AST parser output.
 
 ### [V2-12] MCP Tool Expansion
-`find_callers`, `find_callees`, `find_unused_exports`, `find_circular_deps`, `zone_summary`, `recent_changes`. Requires V1-07.
+**Status:** ✅ Done
+
+`find_callers`, `find_callees`, `find_unused_exports`, `find_circular_deps`, `zone_summary`, and `recent_changes` are available through the MCP server. The local graph query CLI shares the same implementation and exposes `zoneSummary` and `recent` for manual inspection.
 
 ### [V2-14] Multi-Language Monorepo Support
 Zone-level parser selection. Cross-language import detection via convention or OpenAPI spec. Requires stable single-language parsers first.
