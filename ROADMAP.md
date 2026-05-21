@@ -31,7 +31,7 @@
 | V1-22 | Import-aware call graph resolution | ✅ Done |
 | V1-23 | Clean global install smoke script | ✅ Done |
 | V2-06 | AST Parsers for Python / PHP / Ruby | 🟡 Partial (Python/Ruby Tree-sitter, PHP fallback) |
-| V2-16 | LLM Retry / Rate Limit Handling | ✅ Done (retry foundation) |
+| V2-16 | LLM Retry / Rate Limit Handling | ✅ Done |
 
 ---
 
@@ -282,8 +282,8 @@ Remaining future expansion: LLM-based claim verification for architecture/domain
 | Priority | Task | Why this order |
 |---|---|---|
 | 1 | PHP Tree-sitter compatibility | Completes V2-06 parser expansion |
-| 2 | Resumable LLM runs | Cache completed zone outputs across interrupted runs |
-| 3 | Semantic search / embeddings | Adds task-aware low-token retrieval |
+| 2 | Semantic search / embeddings | Adds task-aware low-token retrieval |
+| 3 | PHP Tree-sitter compatibility | Completes V2-06 parser expansion |
 
 ---
 
@@ -319,8 +319,8 @@ Vitest suite with fixture repos (one per language). Each fixture has known impor
 Zone-level parser selection. Cross-language import detection via convention or OpenAPI spec. Requires stable single-language parsers first.
 
 ### [V2-16] LLM Retry / Rate Limit Handling
-**Status:** ✅ Done (retry foundation)
+**Status:** ✅ Done
 
 Exponential backoff on 429/500 and transient network errors now wraps the main LLM clients. Config supports `llm.retries`, `llm.retryDelayMs`, `LLM_RETRIES`, and `LLM_RETRY_DELAY_MS`.
 
-Remaining: resumable runs that cache completed zone outputs across interrupted map/wiki generation.
+Zone and detailed map generation cache completed LLM outputs under `_graph/llm-cache/`, keyed by task, zone, provider, model, and prompt input. Interrupted runs can reuse completed zone outputs instead of paying the LLM cost again.

@@ -15,6 +15,7 @@ const DEFAULT_PATTERNS = [
   '.venv',
   'venv',
   '_graph',
+  '_graph/llm-cache',
   '_wiki',
   '.git',
   '.husky',

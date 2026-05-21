@@ -7,6 +7,7 @@ import { join, relative } from 'path';
 import { createHash } from 'crypto';
 import { generate as ollamaGenerateFromUtil, OllamaError, printOllamaError } from '../src/utils/ollama.js';
 import { loadConfig } from '../src/config.js';
+import { cacheKey, readCachedLlmOutput, writeCachedLlmOutput } from '../src/utils/llm-cache.js';
 
 // ─── Resolve target repo ────────────────────────────────────────────────────
 
@@ -170,15 +171,33 @@ Be concise. This map is read by AI assistants, not humans. Prioritize signal ove
 Respond with the markdown map only. No commentary.`;
 
     try {
-        const map = await ollamaGenerateFromUtil({
-            model: OLLAMA_MODEL,
-            prompt,
-            host: OLLAMA_URL,
-            repoRoot: TARGET_ROOT,
+        const key = cacheKey({
             task: 'zone-map',
             zone: zone.name,
-            options: { temperature: 0.2, num_predict: 2048 },
+            provider: 'ollama',
+            model: OLLAMA_MODEL,
+            input: prompt,
         });
+        let map = readCachedLlmOutput(TARGET_ROOT, key);
+        if (map) {
+            log(`  ♻️  ${zone.name} — reused cached LLM output`);
+        } else {
+            map = await ollamaGenerateFromUtil({
+                model: OLLAMA_MODEL,
+                prompt,
+                host: OLLAMA_URL,
+                repoRoot: TARGET_ROOT,
+                task: 'zone-map',
+                zone: zone.name,
+                options: { temperature: 0.2, num_predict: 2048 },
+            });
+            writeCachedLlmOutput(TARGET_ROOT, key, {
+                task: 'zone-map',
+                zone: zone.name,
+                provider: 'ollama',
+                model: OLLAMA_MODEL,
+            }, map);
+        }
         const header = `<!-- zone:${zone.name} updated:${new Date().toISOString()} hash:${hashContent(snapshot)} -->\n`;
         writeFileSync(mapPath, header + map, 'utf-8');
         log(`  ✅ ${zone.name} — map updated`);

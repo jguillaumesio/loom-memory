@@ -8,6 +8,7 @@ import { join, extname, relative }           from 'path';
 import { chat, provider, model }             from './llm.js';
 import { getAllExtensions }                  from './parsers/index.mjs';
 import { loadConfig }                        from '../src/config.js';
+import { cacheKey, readCachedLlmOutput, writeCachedLlmOutput } from '../src/utils/llm-cache.js';
 
 const args = process.argv.slice(2);
 const targetIdx = args.indexOf('--target');
@@ -107,7 +108,26 @@ async function processZone(zone) {
     }
 
     log(`   Calling ${provider}...`);
-    const result  = await chat(buildPrompt(zone, files));
+    const prompt = buildPrompt(zone, files);
+    const key = cacheKey({
+        task: 'detailed-map',
+        zone: zone.name,
+        provider,
+        model,
+        input: prompt,
+    });
+    let result = readCachedLlmOutput(ROOT, key);
+    if (result) {
+        log(`   reused cached LLM output`);
+    } else {
+        result = await chat(prompt);
+        writeCachedLlmOutput(ROOT, key, {
+            task: 'detailed-map',
+            zone: zone.name,
+            provider,
+            model,
+        }, result);
+    }
     const outPath = join(OUTPUT_DIR, `${zone.name.replace('/', '-')}.detailed.md`);
 
     mkdirSync(join(OUTPUT_DIR, zone.name.split('/')[0]), { recursive: true });
