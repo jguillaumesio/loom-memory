@@ -111,5 +111,15 @@ server.tool(
     async ({ limit = 20 } = {}) => json(queries.recentChanges(undefined, { limit }))
 );
 
+server.tool(
+    'semantic_search',
+    'Search local code and wiki chunks for compact task-relevant context',
+    {
+        query: z.string().describe('Natural-language or keyword query'),
+        limit: z.number().int().positive().max(50).optional().describe('Maximum number of chunks to return'),
+    },
+    async ({ query, limit = 8 }) => json(queries.search(query, { limit }))
+);
+
 const transport = new StdioServerTransport();
 await server.connect(transport);

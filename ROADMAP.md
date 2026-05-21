@@ -31,6 +31,7 @@
 | V1-22 | Import-aware call graph resolution | ✅ Done |
 | V1-23 | Clean global install smoke script | ✅ Done |
 | V2-06 | AST Parsers for Python / PHP / Ruby | ✅ Done |
+| V2-08 | Semantic Search / Embeddings | ✅ Done (local deterministic embeddings) |
 | V2-12 | MCP Tool Expansion | ✅ Done |
 | V2-16 | LLM Retry / Rate Limit Handling | ✅ Done |
 
@@ -282,7 +283,7 @@ Remaining future expansion: LLM-based claim verification for architecture/domain
 
 | Priority | Task | Why this order |
 |---|---|---|
-| 1 | Semantic search / embeddings | Adds task-aware low-token retrieval |
+| 1 | Broader fixture repositories | Validate mixed-stack behavior across realistic repo shapes |
 
 ---
 
@@ -303,7 +304,11 @@ Requires V1-07 and V1-06 to be accurate enough to trust. Flags functions mention
 PHP uses the grammar package's `php` language export, which is compatible with the pinned Node Tree-sitter runtime.
 
 ### [V2-08] Semantic Search / Embeddings
-Embed function bodies and wiki sections. Enable natural language queries via cosine similarity. Use `sqlite-vec` to keep everything in one SQLite file. Requires reliable call graph (V1-07) first.
+**Status:** ✅ Done (local first pass)
+
+Graph builds now write `semantic_chunks` into the existing SQLite DB for code and wiki memory. Queries use deterministic local embeddings plus cosine similarity, exposed through `loom-memory search`, `npm run graph:query -- search`, and MCP `semantic_search`.
+
+Future ranking expansion: replace or augment the deterministic vectors with richer local embedding models and/or a SQLite vector extension once packaging stays simple across platforms.
 
 ### [V2-09] Cost Estimator + Dry Run
 Before calling any paid LLM API, compute approximate token count and display estimated cost. `--dry-run` flag shows cost without executing. Less critical once V1-04 (incremental updates) reduces per-run token usage.

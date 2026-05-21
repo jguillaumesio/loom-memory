@@ -10,6 +10,7 @@ import { loadLoomIgnore } from '../src/utils/loomignore.js';
 import { getIndexableFiles } from '../src/utils/file-discovery.js';
 import { parseFile, isTsFile } from '../src/parser/ts-parser.js';
 import { loadConfig } from '../src/config.js';
+import { rebuildSearchIndex } from './lib/search-index.mjs';
 
 const ROOT = process.cwd();
 const config = await loadConfig(ROOT);
@@ -183,8 +184,9 @@ const fc = db.prepare('SELECT COUNT(*) as c FROM files').get().c;
 const ic = db.prepare('SELECT COUNT(*) as c FROM imports').get().c;
 const sc = db.prepare('SELECT COUNT(*) as c FROM symbols').get().c;
 const cc = db.prepare('SELECT COUNT(*) as c FROM calls').get().c;
+const ec = rebuildSearchIndex(db, ROOT, files, { wikiDir: config.output?.wiki || '_wiki' });
 
-console.log(`✅ Graph built: ${fc} files, ${ic} import edges, ${sc} symbols, ${cc} calls`);
+console.log(`✅ Graph built: ${fc} files, ${ic} import edges, ${sc} symbols, ${cc} calls, ${ec} search chunks`);
 db.close();
 
 function parseTs(file) {

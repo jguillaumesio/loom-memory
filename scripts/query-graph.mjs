@@ -24,6 +24,7 @@ const commandMap = {
   unused: 'unused',
   cycles: 'cycles',
   recent: 'recentChanges',
+  search: 'search',
 };
 
 const [,, command, ...rawArgs] = process.argv;
@@ -54,6 +55,7 @@ Commands:
   unused                Exported symbols with zero internal callers
   cycles                Simple file-level circular dependencies
   recent                Recently changed indexed files from git history
+  search <query>        Local semantic search over code and wiki chunks
 
 Flags:
   --fuzzy               Use partial matching for symbol/call/zone queries

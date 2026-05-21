@@ -29,6 +29,7 @@ export function main() {
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM files').get().n, 2);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM imports').get().n, 1);
   assert.ok(db.prepare('SELECT COUNT(*) AS n FROM calls WHERE caller_symbol = ? AND callee_symbol = ?').get('main', 'helper').n >= 1);
+  assert.ok(db.prepare('SELECT COUNT(*) AS n FROM semantic_chunks WHERE kind = ?').get('code').n >= 2);
   db.close();
 });
 
@@ -145,6 +146,41 @@ export function render() {
   assert.equal(recent[0].path, 'apps/web/src/app.ts');
   assert.equal(recent[0].zone, 'apps/web');
   assert.deepEqual(recent[0].symbols, ['render']);
+});
+
+test('query graph searches local code and wiki chunks', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'loom-search-'));
+  fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(dir, '_wiki'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'src/billing.ts'), `
+export function calculateInvoiceTotal(lineItems: number[]) {
+  return lineItems.reduce((sum, value) => sum + value, 0);
+}
+`);
+  fs.writeFileSync(path.join(dir, 'src/auth.ts'), `
+export function validateSession() {
+  return true;
+}
+`);
+  fs.writeFileSync(path.join(dir, '_wiki/01-Architecture-Stack.md'), `
+# Billing
+
+Invoices are calculated from line items before payment capture.
+`);
+
+  execFileSync(process.execPath, [path.join(root, 'scripts/build-graph.mjs')], {
+    cwd: dir,
+    stdio: 'ignore',
+  });
+
+  const results = JSON.parse(execFileSync(process.execPath, [path.join(root, 'scripts/query-graph.mjs'), 'search', 'invoice line items', '--limit=2'], {
+    cwd: dir,
+    encoding: 'utf8',
+  }));
+
+  assert.ok(results.length > 0);
+  assert.equal(results[0].path, 'src/billing.ts');
+  assert.ok(results[0].score > 0);
 });
 
 test('build-graph resolves calls through import bindings instead of global names', () => {

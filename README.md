@@ -50,6 +50,7 @@ The SQLite database currently stores:
 - language metadata
 - exported symbols
 - import relationships
+- local search chunks for code and wiki memory
 
 The MCP server currently exposes:
 
@@ -64,6 +65,7 @@ The MCP server currently exposes:
 - `find_circular_deps`
 - `zone_summary`
 - `recent_changes`
+- `semantic_search`
 
 ## Current Status
 
@@ -88,6 +90,7 @@ What works today:
 - prompt metadata for generated wiki freshness checks
 - section-level incremental wiki updates for affected zones
 - compact graph context queries for zone summaries and recent changed files
+- local semantic search over code and wiki chunks with deterministic embeddings
 - basic doctor, status, and verify commands
 - packaged CLI smoke coverage
 - fixture-based Node tests
@@ -114,6 +117,7 @@ node bin/cli.js update ./path/to/repo
 node bin/cli.js status ./path/to/repo
 node bin/cli.js doctor ./path/to/repo
 node bin/cli.js verify ./path/to/repo
+node bin/cli.js search ./path/to/repo "invoice line items"
 ```
 
 Check the packaged CLI from a temporary global install:
@@ -130,6 +134,7 @@ loom-memory update ./path/to/repo
 loom-memory status ./path/to/repo
 loom-memory doctor ./path/to/repo
 loom-memory verify ./path/to/repo
+loom-memory search ./path/to/repo "invoice line items"
 ```
 
 Build the graph for this repository:
@@ -147,6 +152,7 @@ npm run graph:query -- deps src/commands/init.js
 npm run graph:query -- callers callLLM
 npm run graph:query -- zoneSummary src
 npm run graph:query -- recent --limit=10
+npm run graph:query -- search "Ollama retry handling" --limit=5
 ```
 
 ## Intended CLI
@@ -193,7 +199,7 @@ The project is intentionally stack agnostic. JavaScript and TypeScript get the m
 The next milestones are:
 
 1. Add more fixture repositories across mixed stacks.
-2. Add semantic search with local embeddings and SQLite vector search.
+2. Improve semantic search ranking with richer local embeddings.
 
 ## Design Principles
 

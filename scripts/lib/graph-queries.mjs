@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { searchSemanticChunks } from './search-index.mjs';
 
 export function matchSql(column, value, { fuzzy = false } = {}) {
   return {
@@ -229,6 +230,10 @@ export function createGraphQueries(db, { cwd = process.cwd() } = {}) {
       }
       return rows;
     },
+
+    search: (query, options = {}) => searchSemanticChunks(db, query, {
+      limit: Number.isInteger(options.limit) && options.limit > 0 ? options.limit : 8,
+    }),
   };
 }
 

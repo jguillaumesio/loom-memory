@@ -7,6 +7,7 @@ import { doctorCommand } from '../src/commands/doctor.js'
 import { statusCommand } from '../src/commands/status.js'
 import { installHooks } from '../src/commands/install-hooks.js'
 import { verifyCommand } from '../src/commands/verify.js'
+import { searchCommand } from '../src/commands/search.js'
 
 program
     .name('loom-memory')
@@ -48,6 +49,12 @@ program
     .description('Verify generated memory against the graph and filesystem')
     .argument('[repoPath]', 'Repository path', '.')
     .action(verifyCommand)
+
+program
+    .command('search <repoPath> <query>')
+    .description('Search local code and wiki memory for compact relevant context')
+    .option('--limit <n>', 'Maximum number of chunks to return', '8')
+    .action(searchCommand)
 
 program
     .command('install-hooks <repoPath>')
