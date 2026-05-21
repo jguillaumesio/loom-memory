@@ -7,8 +7,19 @@
     "loom-memory": "./bin/cli.js",
     "wiki-tool": "./bin/cli.js"
   },
+  "files": [
+    "action.yml",
+    "bin/",
+    "prompts/",
+    "scripts/",
+    "src/",
+    ".env.example",
+    ".loomignore.example",
+    ".wiki-tool.example",
+    "README.md"
+  ],
   "scripts": {
-    "prepare": "husky",
+    "prepare": "node scripts/prepare.mjs",
     "update": "node scripts/update-code-map.mjs",
     "update:force": "node scripts/update-code-map.mjs --all",
     "detailed": "node scripts/update-detailed-maps.mjs",

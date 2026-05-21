@@ -61,7 +61,7 @@ The MCP server currently exposes:
 
 ## Current Status
 
-This repository is an alpha prototype with a working standalone CLI surface. The core external-repository flow is now wired, but the generated wiki still needs deeper section-level incremental updates before the "living wiki" promise is complete.
+This repository is an alpha prototype with a working standalone CLI surface. The core external-repository flow is now wired, including graph-backed verification and section-level wiki refreshes for changed zones.
 
 What works today:
 
@@ -78,12 +78,13 @@ What works today:
 - optional GitHub Actions workflow generation
 - LLM call logging to `_graph/runs.jsonl`
 - prompt metadata for generated wiki freshness checks
-- basic doctor and status commands
+- section-level incremental wiki updates for affected zones
+- basic doctor, status, and verify commands
+- packaged CLI smoke coverage
 - fixture-based Node tests
 
 What still needs work:
 
-- generated wiki pages are not yet surgically updated section by section
 - Python, PHP, and Ruby parsing is still regex-based and should move to Tree-sitter
 - call graph resolution is useful but still name-based, so overloaded/common names can need refinement
 - the npm package should be published and tested from a clean global install
@@ -105,6 +106,7 @@ node bin/cli.js init ./path/to/repo
 node bin/cli.js update ./path/to/repo
 node bin/cli.js status ./path/to/repo
 node bin/cli.js doctor ./path/to/repo
+node bin/cli.js verify ./path/to/repo
 ```
 
 After publishing or linking the package, the command is:
@@ -114,6 +116,7 @@ loom-memory init ./path/to/repo
 loom-memory update ./path/to/repo
 loom-memory status ./path/to/repo
 loom-memory doctor ./path/to/repo
+loom-memory verify ./path/to/repo
 ```
 
 Build the graph for this repository:
@@ -140,6 +143,7 @@ loom-memory init ./path/to/repo
 loom-memory update ./path/to/repo
 loom-memory status ./path/to/repo
 loom-memory doctor ./path/to/repo
+loom-memory verify ./path/to/repo
 loom-memory install-hooks ./path/to/repo
 ```
 
@@ -173,12 +177,11 @@ The project is intentionally stack agnostic. JavaScript and TypeScript get the m
 
 The next milestones are:
 
-1. Implement true section-level incremental wiki updates.
-2. Improve call graph resolution with import-aware symbol binding.
-3. Replace regex parsers for Python, PHP, and Ruby with Tree-sitter parsers.
-4. Add more fixture repositories across mixed stacks.
-5. Publish and test from a clean global install.
-6. Add semantic search with local embeddings and SQLite vector search.
+1. Improve call graph resolution with import-aware symbol binding.
+2. Replace regex parsers for Python, PHP, and Ruby with Tree-sitter parsers.
+3. Add more fixture repositories across mixed stacks.
+4. Publish and test from a clean global install.
+5. Add semantic search with local embeddings and SQLite vector search.
 
 ## Design Principles
 

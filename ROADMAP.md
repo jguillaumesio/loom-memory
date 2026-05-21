@@ -26,7 +26,8 @@
 | V1-11 | LLM call logging | ✅ Done |
 | V1-17 | Ollama model config per task | ✅ Done |
 | V1-15 | Prompt versioning | ✅ Done |
-| V1-04 | Incremental wiki updates | 🟡 Partial |
+| V1-04 | Incremental wiki updates | ✅ Done (section-level zone refresh) |
+| V1-21 | Package smoke coverage | ✅ Done |
 
 ---
 
@@ -202,10 +203,10 @@ loom_version: "1.2.0"
 ---
 
 ### [V1-04] Incremental Wiki Updates
-**Status:** 🟡 Partial
+**Status:** ✅ Done (section-level zone refresh)
 **Priority:** Core promise — "living wiki" — currently `_wiki/00–04.md` go stale after init. Only the call graph appends incrementally.
 
-**Current implementation:** `loom-memory update` rebuilds the graph, refreshes local maps, logs LLM calls, and appends changed-file call graph notes. Prompt hashes now let `status` detect stale generated pages. The missing piece is still section-level replacement inside `_wiki/00–04.md`.
+**Current implementation:** `loom-memory update` rebuilds the graph, refreshes local maps, logs LLM calls, appends changed-file call graph notes, and refreshes generated zone sections inside `_wiki/01–03.md` using managed section markers. Prompt hashes let `status` detect stale generated pages.
 
 **Goal:** `loom-memory update` detects which wiki sections are affected by changed files and regenerates only those sections.
 
@@ -219,7 +220,18 @@ loom_version: "1.2.0"
 **Files to modify:**
 - `src/commands/update.js` — add section-level wiki refresh logic
 - `src/utils/wiki-section.js` — new: `replaceSection(file, sectionId, newContent)`
-- `prompts/wiki.md` — add section-only prompt variants
+- `prompts/wiki-section.md` — section-only prompt for incremental zone refreshes
+
+---
+
+### [V1-21] Package Smoke Coverage
+**Status:** ✅ Done
+**Priority:** Important — confirms the packaged CLI includes runtime files and excludes local/dev artifacts before publishing.
+
+**Implementation:**
+- `package.json` uses an explicit `files` allowlist for CLI runtime assets
+- `scripts/prepare.mjs` skips Husky gracefully when `.git/config` is not writable
+- `test/package-smoke.test.js` runs `npm pack --dry-run --json` with an isolated npm cache and asserts package contents
 
 ---
 
@@ -244,9 +256,9 @@ Remaining future expansion: LLM-based claim verification for architecture/domain
 
 | Priority | Task | Why this order |
 |---|---|---|
-| 1 | V1-04 Incremental wiki section replacement | Last incomplete V1 promise |
-| 2 | Broaden tests around published-package install | Confirms standalone UX |
-| 3 | Import-aware call graph resolution | Improves precision of V1-07 |
+| 1 | Import-aware call graph resolution | Improves precision of V1-07 |
+| 2 | Clean global install smoke test | Confirms standalone UX beyond package contents |
+| 3 | Tree-sitter parser expansion | Moves Python/PHP/Ruby beyond regex parsing |
 
 ---
 
