@@ -108,6 +108,12 @@ node bin/cli.js doctor ./path/to/repo
 node bin/cli.js verify ./path/to/repo
 ```
 
+Check the packaged CLI from a temporary global install:
+
+```bash
+npm run smoke:global-install
+```
+
 After publishing or linking the package, the command is:
 
 ```bash

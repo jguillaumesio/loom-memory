@@ -32,6 +32,7 @@ test('npm package contains the CLI runtime and excludes local/dev artifacts', ()
     'scripts/build-graph.mjs',
     'scripts/graph-mcp.mjs',
     'scripts/prepare.mjs',
+    'scripts/smoke-global-install.mjs',
     'prompts/wiki-section.md',
   ]) {
     assert.ok(files.includes(required), `expected package to include ${required}`);

@@ -29,6 +29,7 @@
 | V1-04 | Incremental wiki updates | ✅ Done (section-level zone refresh) |
 | V1-21 | Package smoke coverage | ✅ Done |
 | V1-22 | Import-aware call graph resolution | ✅ Done |
+| V1-23 | Clean global install smoke script | ✅ Done |
 
 ---
 
@@ -264,13 +265,23 @@ Remaining future expansion: LLM-based claim verification for architecture/domain
 
 ---
 
+### [V1-23] Clean Global Install Smoke Script
+**Status:** ✅ Done
+**Priority:** Important — confirms standalone CLI execution from a packed tarball in a temporary global prefix.
+
+**Implementation:**
+- `npm run smoke:global-install` packs the project, installs the tarball into a temporary prefix, runs `loom-memory --help`, and cleans up
+- the script uses an isolated npm cache, disables install scripts, and has a bounded timeout to avoid silent hangs
+
+---
+
 ## V1 Implementation Order (Remaining)
 
 | Priority | Task | Why this order |
 |---|---|---|
-| 1 | Clean global install smoke test | Confirms standalone UX beyond package contents |
-| 2 | Tree-sitter parser expansion | Moves Python/PHP/Ruby beyond regex parsing |
-| 3 | LLM retry / resumable runs | Improves reliability before broad distribution |
+| 1 | Tree-sitter parser expansion | Moves Python/PHP/Ruby beyond regex parsing |
+| 2 | LLM retry / resumable runs | Improves reliability before broad distribution |
+| 3 | Semantic search / embeddings | Adds task-aware low-token retrieval |
 
 ---
 

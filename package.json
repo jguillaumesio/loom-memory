@@ -25,6 +25,7 @@
     "detailed": "node scripts/update-detailed-maps.mjs",
     "graph": "node scripts/build-graph.mjs",
     "graph:query": "node scripts/query-graph.mjs",
+    "smoke:global-install": "node scripts/smoke-global-install.mjs",
     "test": "node --test",
     "all": "npm run graph && npm run update && npm run detailed"
   },
