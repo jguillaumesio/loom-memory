@@ -87,6 +87,7 @@ What works today:
 - LLM call logging to `_graph/runs.jsonl`
 - LLM retry handling for rate limits, transient network failures, and 5xx responses
 - cached per-zone LLM outputs for resumable map generation
+- paid-provider cost estimation for detailed map dry runs
 - prompt metadata for generated wiki freshness checks
 - section-level incremental wiki updates for affected zones
 - compact graph context queries for zone summaries and recent changed files
@@ -153,6 +154,12 @@ npm run graph:query -- callers callLLM
 npm run graph:query -- zoneSummary src
 npm run graph:query -- recent --limit=10
 npm run graph:query -- search "Ollama retry handling" --limit=5
+```
+
+Estimate detailed-map token usage and paid-provider cost without LLM calls or writes:
+
+```bash
+npm run detailed:dry-run
 ```
 
 ## Intended CLI

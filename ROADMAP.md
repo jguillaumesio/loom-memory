@@ -32,6 +32,7 @@
 | V1-23 | Clean global install smoke script | ✅ Done |
 | V2-06 | AST Parsers for Python / PHP / Ruby | ✅ Done |
 | V2-08 | Semantic Search / Embeddings | ✅ Done (local deterministic embeddings) |
+| V2-09 | Cost Estimator + Dry Run | ✅ Done |
 | V2-10 | Test Suite | ✅ Done (fixture graph coverage) |
 | V2-12 | MCP Tool Expansion | ✅ Done |
 | V2-16 | LLM Retry / Rate Limit Handling | ✅ Done |
@@ -284,8 +285,7 @@ Remaining future expansion: LLM-based claim verification for architecture/domain
 
 | Priority | Task | Why this order |
 |---|---|---|
-| 1 | Cost estimator + dry run | Estimate paid LLM calls before execution |
-| 2 | Multi-language monorepo conventions | Resolve cross-language edges from contracts and generated clients |
+| 1 | Multi-language monorepo conventions | Resolve cross-language edges from contracts and generated clients |
 
 ---
 
@@ -313,7 +313,9 @@ Graph builds now write `semantic_chunks` into the existing SQLite DB for code an
 Future ranking expansion: replace or augment the deterministic vectors with richer local embedding models and/or a SQLite vector extension once packaging stays simple across platforms.
 
 ### [V2-09] Cost Estimator + Dry Run
-Before calling any paid LLM API, compute approximate token count and display estimated cost. `--dry-run` flag shows cost without executing. Less critical once V1-04 (incremental updates) reduces per-run token usage.
+**Status:** ✅ Done
+
+`npm run detailed:dry-run` computes per-zone and total token estimates plus paid-provider cost estimates without making LLM calls or writing files. Local Ollama is estimated at `$0`.
 
 ### [V2-10] Test Suite
 **Status:** ✅ Done

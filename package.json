@@ -23,6 +23,7 @@
     "update": "node scripts/update-code-map.mjs",
     "update:force": "node scripts/update-code-map.mjs --all",
     "detailed": "node scripts/update-detailed-maps.mjs",
+    "detailed:dry-run": "node scripts/update-detailed-maps.mjs --dry-run",
     "graph": "node scripts/build-graph.mjs",
     "graph:query": "node scripts/query-graph.mjs",
     "smoke:global-install": "node scripts/smoke-global-install.mjs",

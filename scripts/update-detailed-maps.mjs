@@ -9,11 +9,13 @@ import { chat, provider, model }             from './llm.js';
 import { getAllExtensions }                  from './parsers/index.mjs';
 import { loadConfig }                        from '../src/config.js';
 import { cacheKey, readCachedLlmOutput, writeCachedLlmOutput } from '../src/utils/llm-cache.js';
+import { estimateLlmUsage, summarizeUsage } from '../src/utils/cost-estimator.js';
 
 const args = process.argv.slice(2);
 const targetIdx = args.indexOf('--target');
 const ROOT       = targetIdx !== -1 ? args[targetIdx + 1] : process.cwd();
 const silent     = args.includes('--silent');
+const dryRun     = args.includes('--dry-run');
 const log        = (...msg) => { if (!silent) console.log(...msg); };
 const config     = await loadConfig(ROOT);
 const OUTPUT_DIR = join(ROOT, config.output?.wiki || '_wiki', 'maps/detailed');
@@ -109,6 +111,16 @@ async function processZone(zone) {
 
     log(`   Calling ${provider}...`);
     const prompt = buildPrompt(zone, files);
+    if (dryRun) {
+        const estimate = estimateLlmUsage(prompt, {
+            provider,
+            model,
+            maxOutputTokens: 4096,
+        });
+        log(`   dry run — input ${estimate.inputTokens.toLocaleString()} tokens, output reserve ${estimate.outputTokens.toLocaleString()} tokens, estimated cost ${formatCost(estimate.estimatedCostUsd)}`);
+        return estimate;
+    }
+
     const key = cacheKey({
         task: 'detailed-map',
         zone: zone.name,
@@ -136,6 +148,7 @@ async function processZone(zone) {
         `# ${zone.name} — Detailed Map\n_Auto-generated ${new Date().toISOString()} — ${provider}/${model}_\n\n${result}`,
     );
     log(`   updated → ${outPath}`);
+    return null;
 }
 
 function updateIndex() {
@@ -157,15 +170,24 @@ function updateIndex() {
 }
 
 async function main() {
-    mkdirSync(OUTPUT_DIR, { recursive: true });
+    if (!dryRun) mkdirSync(OUTPUT_DIR, { recursive: true });
     log(`\nDetailed Maps — provider: ${provider} — model: ${model}\n`);
 
+    const estimates = [];
     for (const zone of ZONES) {
         try {
-            await processZone(zone);
+            const estimate = await processZone(zone);
+            if (estimate) estimates.push(estimate);
         } catch (err) {
             console.error(`  ${zone.name}: ${err.message}`);
         }
+    }
+
+    if (dryRun) {
+        const total = summarizeUsage(estimates);
+        log(`\nDry run total — input ${total.inputTokens.toLocaleString()} tokens, output reserve ${total.outputTokens.toLocaleString()} tokens, estimated cost ${formatCost(total.estimatedCostUsd)}`);
+        log('No LLM calls were made and no files were written.\n');
+        return;
     }
 
     updateIndex();
@@ -173,3 +195,9 @@ async function main() {
 }
 
 main().catch(err => { console.error('Fatal error:', err); process.exit(1); });
+
+function formatCost(cost) {
+    if (cost === null || cost === undefined) return 'unknown';
+    if (cost === 0) return '$0.000000';
+    return `$${cost.toFixed(6)}`;
+}
