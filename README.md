@@ -79,6 +79,7 @@ What works today:
 - Tree-sitter-backed parsers for Python, PHP, and Ruby, with regex fallbacks for parser load failures
 - SQLite graph generation
 - import-aware function-call extraction for JavaScript and TypeScript
+- explicit cross-language contract edges through `@openapi`, `@contract`, and `@loom-import` annotations
 - MCP query server for graph lookups
 - `.loomignore` support
 - managed `AGENTS.md` block updates
@@ -99,7 +100,7 @@ What works today:
 What still needs work:
 
 - the npm package should be published and tested from a clean global install
-- MCP config is generated, but more assistant-specific presets could be added
+- future roadmap items should now be scoped from real-world use on more repositories
 
 ## Installation
 
@@ -205,8 +206,7 @@ The project is intentionally stack agnostic. JavaScript and TypeScript get the m
 
 The next milestones are:
 
-1. Improve semantic search ranking with richer local embeddings.
-2. Expand cross-language dependency detection for conventions such as OpenAPI and generated clients.
+No active roadmap tasks remain. The next useful work should come from testing more real repositories and turning the findings into new scoped roadmap items.
 
 ## Design Principles
 

@@ -67,6 +67,24 @@ export function main() {
       calls: [],
     },
   },
+  {
+    name: 'cross-language OpenAPI contract',
+    files: {
+      'services/api/openapi.yaml': `openapi: 3.0.0\ninfo:\n  title: Billing API\n  version: 1.0.0\n`,
+      'packages/client/src/generated.ts': `
+// @openapi ../../../services/api/openapi.yaml
+export function createBillingClient() {
+  return true;
+}
+`,
+    },
+    expected: {
+      files: 2,
+      imports: [{ from: 'packages/client/src/generated.ts', to: 'services/api/openapi.yaml' }],
+      symbols: ['createBillingClient'],
+      calls: [],
+    },
+  },
 ];
 
 for (const fixture of fixtures) {

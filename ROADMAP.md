@@ -35,6 +35,7 @@
 | V2-09 | Cost Estimator + Dry Run | ✅ Done |
 | V2-10 | Test Suite | ✅ Done (fixture graph coverage) |
 | V2-12 | MCP Tool Expansion | ✅ Done |
+| V2-14 | Multi-Language Monorepo Support | ✅ Done (initial convention support) |
 | V2-16 | LLM Retry / Rate Limit Handling | ✅ Done |
 
 ---
@@ -283,16 +284,16 @@ Remaining future expansion: LLM-based claim verification for architecture/domain
 
 ## V1 Implementation Order (Remaining)
 
-| Priority | Task | Why this order |
-|---|---|---|
-| 1 | Multi-language monorepo conventions | Resolve cross-language edges from contracts and generated clients |
+No active roadmap tasks remain. Future work should be opened as new, scoped roadmap items before implementation.
 
 ---
 
 ## V2 TASKS (Future)
 
 ### [V2-05] Wiki vs Code Drift Detection — `loom-memory verify`
-Requires V1-07 and V1-06 to be accurate enough to trust. Flags functions mentioned in wiki that no longer exist, deleted files referenced in architecture docs, zones described that no longer match actual structure.
+**Status:** ✅ Done
+
+`loom-memory verify` flags generated-memory references to deleted files, missing graph symbols, empty configured zones, and missing/stale section markers.
 
 ### [V2-06] AST Parsers for Python / PHP / Ruby
 **Status:** ✅ Done — Python, PHP, and Ruby use Tree-sitter with regex fallback.
@@ -328,7 +329,11 @@ Node test suite includes fixture repositories for TypeScript, Python, PHP, and R
 `find_callers`, `find_callees`, `find_unused_exports`, `find_circular_deps`, `zone_summary`, and `recent_changes` are available through the MCP server. The local graph query CLI shares the same implementation and exposes `zoneSummary` and `recent` for manual inspection.
 
 ### [V2-14] Multi-Language Monorepo Support
-Zone-level parser selection. Cross-language import detection via convention or OpenAPI spec. Requires stable single-language parsers first.
+**Status:** ✅ Done (initial convention support)
+
+Graph build selects parsers per file extension across zones and indexes explicit contract files such as `openapi.yaml`, `swagger.json`, `schema.yaml`, and `contract.json`. Code files can declare cross-language edges with comments such as `@openapi ../api/openapi.yaml`, `@contract ../schema.json`, or `@loom-import ../shared/contract.yaml`; these become normal graph import edges and show up in cross-zone queries.
+
+Future expansion: infer more generated-client edges automatically where conventions are reliable enough to avoid noise.
 
 ### [V2-16] LLM Retry / Rate Limit Handling
 **Status:** ✅ Done

@@ -3,8 +3,8 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const Database = require('better-sqlite3');
 
-import { readFileSync, statSync, mkdirSync } from 'fs';
-import { join, relative, extname, dirname } from 'path';
+import { readFileSync, statSync, mkdirSync, readdirSync } from 'fs';
+import { join, relative, extname, dirname, basename } from 'path';
 import { getParser, getAllExtensions } from './parsers/index.mjs';
 import { loadLoomIgnore } from '../src/utils/loomignore.js';
 import { getIndexableFiles } from '../src/utils/file-discovery.js';
@@ -17,6 +17,9 @@ const config = await loadConfig(ROOT);
 const GRAPH_DIR = config.output?.graph || '_graph';
 const DB_PATH = `./${GRAPH_DIR}/codebase.db`;
 const parsedCache = new Map();
+const CONTRACT_EXTS = new Set(['.json', '.yaml', '.yml']);
+const CONTRACT_NAME_RE = /(?:^|[-_.])(openapi|swagger|schema|contract)(?:[-_.]|$)/i;
+const CONVENTION_IMPORT_RE = /@(?:openapi|contract|loom-import)\s+([^\s*]+)/g;
 
 mkdirSync(GRAPH_DIR, { recursive: true });
 const db = new Database(DB_PATH);
@@ -100,7 +103,10 @@ function resolveImport(fromFile, importPath, parser) {
 
 // ── build ─────────────────────────────────────────────────────────────────
 const ig = loadLoomIgnore(ROOT);
-const files = getIndexableFiles(ROOT, ig, { extensions: new Set(getAllExtensions()) });
+const files = [
+    ...getIndexableFiles(ROOT, ig, { extensions: new Set(getAllExtensions()) }),
+    ...getContractFiles(ROOT, ig),
+];
 console.log(`📂 Found ${files.length} files`);
 
 const build = db.transaction((files) => {
@@ -109,7 +115,9 @@ const build = db.transaction((files) => {
         const rel     = relative(ROOT, file);
         const zone    = detectZone(file);
 
-        if (isTsFile(file)) {
+        if (isContractFile(file)) {
+            insertFile.run(rel, zone, contractLang(file), '');
+        } else if (isTsFile(file)) {
             try {
                 const parsed = parseTs(file);
                 const lang   = extname(file).replace('.', '');
@@ -137,6 +145,7 @@ const build = db.transaction((files) => {
         if (!fromId) continue;
 
         let importPaths;
+        let content = null;
 
         if (isTsFile(file)) {
             try {
@@ -144,12 +153,17 @@ const build = db.transaction((files) => {
             } catch {
                 continue;
             }
+            content = readFileSync(file, 'utf8');
+        } else if (isContractFile(file)) {
+            continue;
         } else {
             const parser = getParser(file);
             if (!parser) continue;
-            const content = readFileSync(file, 'utf8');
+            content = readFileSync(file, 'utf8');
             importPaths = parser.extractImports(content, file);
         }
+
+        importPaths.push(...extractConventionImports(content));
 
         for (const imp of importPaths) {
             const resolved = resolveImport(file, imp, getParser(file));
@@ -226,4 +240,44 @@ function findImportBinding(parsed, call) {
         return parsed.importBindings.find((binding) => binding.namespace && binding.local === call.qualifier) ?? null;
     }
     return parsed.importBindings.find((binding) => !binding.namespace && binding.local === call.callee) ?? null;
+}
+
+function getContractFiles(root, ig) {
+    const files = [];
+    walkContracts(root, root, ig, files);
+    return files;
+}
+
+function walkContracts(root, dir, ig, files) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const abs = join(dir, entry.name);
+        const rel = relative(root, abs);
+        if (entry.name.startsWith('.')) continue;
+        if (ig.ignores(rel) || (entry.isDirectory() && ig.ignores(rel + '/'))) continue;
+        if (entry.isDirectory()) {
+            walkContracts(root, abs, ig, files);
+        } else if (entry.isFile() && isContractFile(abs)) {
+            files.push(abs);
+        }
+    }
+}
+
+function isContractFile(file) {
+    const ext = extname(file);
+    if (!CONTRACT_EXTS.has(ext)) return false;
+    return CONTRACT_NAME_RE.test(basename(file));
+}
+
+function contractLang(file) {
+    return extname(file).replace('.', '') || 'contract';
+}
+
+function extractConventionImports(content) {
+    const imports = [];
+    if (!content) return imports;
+    let match;
+    while ((match = CONVENTION_IMPORT_RE.exec(content)) !== null) {
+        imports.push(match[1].replace(/^['"]|['"]$/g, ''));
+    }
+    return imports;
 }
