@@ -7,6 +7,7 @@ import { RubyParser } from '../scripts/parsers/ruby.mjs';
 test('Python parser extracts imports and symbols through Tree-sitter', () => {
   const parser = new PythonParser();
   const content = `
+from .helpers import helper
 from app.models import User, Role
 import os, sys as system
 
@@ -17,7 +18,7 @@ async def run_job():
     return True
 `;
 
-  assert.deepEqual(parser.extractImports(content), ['app.models', 'os', 'sys']);
+  assert.deepEqual(parser.extractImports(content), ['./helpers', 'app.models', 'os', 'sys']);
   assert.deepEqual(parser.extractSymbols(content), ['Foo', 'run_job']);
 });
 

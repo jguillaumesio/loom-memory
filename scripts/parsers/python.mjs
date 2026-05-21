@@ -33,8 +33,9 @@ function extractImportsAst(content) {
     const tree = parser.parse(content);
     walk(tree.rootNode, (node) => {
         if (node.type === 'import_from_statement') {
-            const module = node.namedChildren.find((child) => child.type === 'dotted_name')?.text;
-            if (module) imports.push(module);
+            const module = node.namedChildren.find((child) => child.type === 'relative_import')?.text ??
+                node.namedChildren.find((child) => child.type === 'dotted_name')?.text;
+            if (module) imports.push(normalizeRelativeImport(module));
         }
         if (node.type === 'import_statement') {
             for (const child of node.namedChildren) {
@@ -47,6 +48,14 @@ function extractImportsAst(content) {
         }
     });
     return imports;
+}
+
+function normalizeRelativeImport(module) {
+    if (!module.startsWith('.')) return module;
+    const prefix = module.match(/^\.+/)?.[0] ?? '';
+    const rest = module.slice(prefix.length);
+    const directory = prefix.length === 1 ? './' : '../'.repeat(prefix.length - 1);
+    return `${directory}${rest}`;
 }
 
 function extractSymbolsAst(content) {

@@ -32,6 +32,7 @@
 | V1-23 | Clean global install smoke script | ✅ Done |
 | V2-06 | AST Parsers for Python / PHP / Ruby | ✅ Done |
 | V2-08 | Semantic Search / Embeddings | ✅ Done (local deterministic embeddings) |
+| V2-10 | Test Suite | ✅ Done (fixture graph coverage) |
 | V2-12 | MCP Tool Expansion | ✅ Done |
 | V2-16 | LLM Retry / Rate Limit Handling | ✅ Done |
 
@@ -283,7 +284,8 @@ Remaining future expansion: LLM-based claim verification for architecture/domain
 
 | Priority | Task | Why this order |
 |---|---|---|
-| 1 | Broader fixture repositories | Validate mixed-stack behavior across realistic repo shapes |
+| 1 | Cost estimator + dry run | Estimate paid LLM calls before execution |
+| 2 | Multi-language monorepo conventions | Resolve cross-language edges from contracts and generated clients |
 
 ---
 
@@ -314,7 +316,9 @@ Future ranking expansion: replace or augment the deterministic vectors with rich
 Before calling any paid LLM API, compute approximate token count and display estimated cost. `--dry-run` flag shows cost without executing. Less critical once V1-04 (incremental updates) reduces per-run token usage.
 
 ### [V2-10] Test Suite
-Vitest suite with fixture repos (one per language). Each fixture has known imports/exports/calls. Tests assert graph output matches expected. Design around final AST parser output.
+**Status:** ✅ Done
+
+Node test suite includes fixture repositories for TypeScript, Python, PHP, and Ruby. Each fixture asserts indexed files, imports, symbols, search chunks, and available call edges.
 
 ### [V2-12] MCP Tool Expansion
 **Status:** ✅ Done

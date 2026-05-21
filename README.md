@@ -93,7 +93,7 @@ What works today:
 - local semantic search over code and wiki chunks with deterministic embeddings
 - basic doctor, status, and verify commands
 - packaged CLI smoke coverage
-- fixture-based Node tests
+- fixture-based Node tests, including TypeScript, Python, PHP, and Ruby graph fixtures
 
 What still needs work:
 
@@ -198,8 +198,8 @@ The project is intentionally stack agnostic. JavaScript and TypeScript get the m
 
 The next milestones are:
 
-1. Add more fixture repositories across mixed stacks.
-2. Improve semantic search ranking with richer local embeddings.
+1. Improve semantic search ranking with richer local embeddings.
+2. Expand cross-language dependency detection for conventions such as OpenAPI and generated clients.
 
 ## Design Principles
 
