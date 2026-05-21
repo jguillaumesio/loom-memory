@@ -70,7 +70,7 @@ What works today:
 - TypeScript/JavaScript AST parsing for imports and exported symbols
 - regex-based parsers for Python, PHP, and Ruby
 - SQLite graph generation
-- function-call extraction for JavaScript and TypeScript
+- import-aware function-call extraction for JavaScript and TypeScript
 - MCP query server for graph lookups
 - `.loomignore` support
 - managed `AGENTS.md` block updates
@@ -86,7 +86,6 @@ What works today:
 What still needs work:
 
 - Python, PHP, and Ruby parsing is still regex-based and should move to Tree-sitter
-- call graph resolution is useful but still name-based, so overloaded/common names can need refinement
 - the npm package should be published and tested from a clean global install
 - MCP config is generated, but more assistant-specific presets could be added
 
@@ -177,11 +176,10 @@ The project is intentionally stack agnostic. JavaScript and TypeScript get the m
 
 The next milestones are:
 
-1. Improve call graph resolution with import-aware symbol binding.
-2. Replace regex parsers for Python, PHP, and Ruby with Tree-sitter parsers.
-3. Add more fixture repositories across mixed stacks.
-4. Publish and test from a clean global install.
-5. Add semantic search with local embeddings and SQLite vector search.
+1. Replace regex parsers for Python, PHP, and Ruby with Tree-sitter parsers.
+2. Add more fixture repositories across mixed stacks.
+3. Publish and test from a clean global install.
+4. Add semantic search with local embeddings and SQLite vector search.
 
 ## Design Principles
 

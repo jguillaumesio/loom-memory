@@ -9,11 +9,12 @@ export function isTsFile(filePath) {
 }
 
 /**
- * Parse a source file and return { symbols, imports, calls }.
+ * Parse a source file and return { symbols, imports, importBindings, calls }.
  *
  * symbols: string[] — top-level exported names
  * imports: string[] — module specifiers (raw, unresolved)
- * calls: { caller: string, callee: string, line: number }[] — detected call sites
+ * importBindings: { local: string, imported: string, source: string, namespace: boolean }[] — local import names
+ * calls: { caller: string, callee: string, qualifier?: string, line: number }[] — detected call sites
  */
 export function parseFile(filePath) {
   const text = fs.readFileSync(filePath, 'utf8');
@@ -28,6 +29,7 @@ export function parseFile(filePath) {
 
   const symbols = new Set();
   const imports = new Set();
+  const importBindings = [];
   const calls = [];
   const functionStack = [];
 
@@ -35,7 +37,9 @@ export function parseFile(filePath) {
     // ── IMPORTS ──────────────────────────────────────────
     // import x from 'm'; import { a } from 'm'; import * as ns from 'm';
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
-      imports.add(node.moduleSpecifier.text);
+      const source = node.moduleSpecifier.text;
+      imports.add(source);
+      collectImportBindings(node, source);
     }
     // export { a } from 'm';  export * from 'm';
     if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
@@ -60,10 +64,10 @@ export function parseFile(filePath) {
 
       const current = functionStack[functionStack.length - 1];
       if (current) {
-        const callee = callName(expr);
-        if (callee && !isNoiseCall(callee)) {
+        const call = callName(expr);
+        if (call && !isNoiseCall(call.callee)) {
           const pos = sf.getLineAndCharacterOfPosition(node.getStart(sf));
-          calls.push({ caller: current, callee, line: pos.line + 1 });
+          calls.push({ caller: current, ...call, line: pos.line + 1 });
         }
       }
     }
@@ -131,12 +135,48 @@ export function parseFile(filePath) {
   }
 
   function callName(expr) {
-    if (ts.isIdentifier(expr)) return expr.text;
-    if (ts.isPropertyAccessExpression(expr)) return expr.name.text;
+    if (ts.isIdentifier(expr)) return { callee: expr.text };
+    if (ts.isPropertyAccessExpression(expr)) {
+      return {
+        callee: expr.name.text,
+        qualifier: ts.isIdentifier(expr.expression) ? expr.expression.text : undefined,
+      };
+    }
     if (ts.isElementAccessExpression(expr) && ts.isStringLiteral(expr.argumentExpression)) {
-      return expr.argumentExpression.text;
+      return {
+        callee: expr.argumentExpression.text,
+        qualifier: ts.isIdentifier(expr.expression) ? expr.expression.text : undefined,
+      };
     }
     return null;
+  }
+
+  function collectImportBindings(node, source) {
+    const clause = node.importClause;
+    if (!clause) return;
+
+    if (clause.name) {
+      importBindings.push({ local: clause.name.text, imported: 'default', source, namespace: false });
+    }
+
+    const named = clause.namedBindings;
+    if (!named) return;
+
+    if (ts.isNamespaceImport(named)) {
+      importBindings.push({ local: named.name.text, imported: '*', source, namespace: true });
+      return;
+    }
+
+    if (ts.isNamedImports(named)) {
+      for (const element of named.elements) {
+        importBindings.push({
+          local: element.name.text,
+          imported: element.propertyName ? element.propertyName.text : element.name.text,
+          source,
+          namespace: false,
+        });
+      }
+    }
   }
 
   function isNoiseCall(name) {
@@ -152,6 +192,7 @@ export function parseFile(filePath) {
   return {
     symbols: [...symbols],
     imports: [...imports],
+    importBindings,
     calls,
   };
 }

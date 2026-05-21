@@ -99,3 +99,38 @@ export function main() {
   }));
   assert.ok(allUnused.some((row) => row.file === 'src/index.ts'));
 });
+
+test('build-graph resolves calls through import bindings instead of global names', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'loom-import-aware-'));
+  fs.mkdirSync(path.join(dir, 'src/a'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'src/b'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'src/a/helper.ts'), `export function helper() { return 'a'; }\n`);
+  fs.writeFileSync(path.join(dir, 'src/b/helper.ts'), `export function helper() { return 'b'; }\n`);
+  fs.writeFileSync(path.join(dir, 'src/main.ts'), `
+import { helper as runHelper } from './b/helper';
+import * as api from './a/helper';
+
+export function main() {
+  runHelper();
+  api.helper();
+}
+`);
+
+  execFileSync(process.execPath, [path.join(root, 'scripts/build-graph.mjs')], {
+    cwd: dir,
+    stdio: 'ignore',
+  });
+
+  const db = new Database(path.join(dir, '_graph/codebase.db'), { readonly: true });
+  const calls = db.prepare(`
+    SELECT caller_symbol, callee_symbol, callee_file
+    FROM calls
+    WHERE caller_file = 'src/main.ts'
+    ORDER BY line
+  `).all();
+  assert.deepEqual(calls, [
+    { caller_symbol: 'main', callee_symbol: 'runHelper', callee_file: 'src/b/helper.ts' },
+    { caller_symbol: 'main', callee_symbol: 'helper', callee_file: 'src/a/helper.ts' },
+  ]);
+  db.close();
+});

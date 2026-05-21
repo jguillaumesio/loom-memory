@@ -28,6 +28,7 @@
 | V1-15 | Prompt versioning | ✅ Done |
 | V1-04 | Incremental wiki updates | ✅ Done (section-level zone refresh) |
 | V1-21 | Package smoke coverage | ✅ Done |
+| V1-22 | Import-aware call graph resolution | ✅ Done |
 
 ---
 
@@ -252,13 +253,24 @@ Remaining future expansion: LLM-based claim verification for architecture/domain
 
 ---
 
+### [V1-22] Import-Aware Call Graph Resolution
+**Status:** ✅ Done
+**Priority:** High — improves precision of V1-07 by resolving calls through local import bindings before falling back to global symbol names.
+
+**Implementation:**
+- `src/parser/ts-parser.js` records named, aliased, default, and namespace import bindings
+- `scripts/build-graph.mjs` resolves TS/JS calls through those bindings and only falls back to global symbol lookup for unique names
+- duplicate exported names no longer resolve to an arbitrary first match when the caller imported a specific module
+
+---
+
 ## V1 Implementation Order (Remaining)
 
 | Priority | Task | Why this order |
 |---|---|---|
-| 1 | Import-aware call graph resolution | Improves precision of V1-07 |
-| 2 | Clean global install smoke test | Confirms standalone UX beyond package contents |
-| 3 | Tree-sitter parser expansion | Moves Python/PHP/Ruby beyond regex parsing |
+| 1 | Clean global install smoke test | Confirms standalone UX beyond package contents |
+| 2 | Tree-sitter parser expansion | Moves Python/PHP/Ruby beyond regex parsing |
+| 3 | LLM retry / resumable runs | Improves reliability before broad distribution |
 
 ---
 

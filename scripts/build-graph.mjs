@@ -62,7 +62,8 @@ const getFileId    = db.prepare(`SELECT id FROM files WHERE path = ?`);
 const insertImport = db.prepare(`INSERT OR IGNORE INTO imports (importer_id, importee_id) VALUES (?, ?)`);
 const insertSymbol = db.prepare(`INSERT INTO symbols (name, file) VALUES (?, ?)`);
 const insertCall   = db.prepare(`INSERT INTO calls (caller_file, caller_symbol, callee_file, callee_symbol, line) VALUES (?, ?, ?, ?, ?)`);
-const findSymbol   = db.prepare(`SELECT file FROM symbols WHERE name = ? LIMIT 1`);
+const filesBySymbol = new Map();
+const symbolsByFile = new Map();
 
 // ── auto-detect zones from filesystem ─────────────────────────────────────
 function detectZone(filePath) {
@@ -112,7 +113,7 @@ const build = db.transaction((files) => {
                 const parsed = parseTs(file);
                 const lang   = extname(file).replace('.', '');
                 insertFile.run(rel, zone, lang, parsed.symbols.join(','));
-                for (const sym of parsed.symbols) insertSymbol.run(sym, rel);
+                for (const sym of parsed.symbols) recordSymbol(sym, rel);
             } catch (err) {
                 console.error(`! parse failed: ${rel} — ${err.message}`);
                 insertFile.run(rel, zone, extname(file).replace('.', ''), '');
@@ -124,7 +125,7 @@ const build = db.transaction((files) => {
             const content = readFileSync(file, 'utf8');
             const syms    = parser.extractSymbols(content, file);
             insertFile.run(rel, zone, lang, syms.join(','));
-            for (const sym of syms) insertSymbol.run(sym, rel);
+            for (const sym of syms) recordSymbol(sym, rel);
         }
     }
 
@@ -170,7 +171,7 @@ const build = db.transaction((files) => {
         }
 
         for (const call of parsed.calls) {
-            const resolved = findSymbol.get(call.callee)?.file ?? null;
+            const resolved = resolveCall(file, rel, parsed, call);
             insertCall.run(rel, call.caller, resolved, call.callee, call.line);
         }
     }
@@ -189,4 +190,38 @@ db.close();
 function parseTs(file) {
     if (!parsedCache.has(file)) parsedCache.set(file, parseFile(file));
     return parsedCache.get(file);
+}
+
+function recordSymbol(name, file) {
+    insertSymbol.run(name, file);
+    if (!filesBySymbol.has(name)) filesBySymbol.set(name, []);
+    filesBySymbol.get(name).push(file);
+    if (!symbolsByFile.has(file)) symbolsByFile.set(file, new Set());
+    symbolsByFile.get(file).add(name);
+}
+
+function resolveCall(absFile, relFile, parsed, call) {
+    if (symbolsByFile.get(relFile)?.has(call.callee)) return relFile;
+
+    const binding = findImportBinding(parsed, call);
+    if (binding) {
+        const importFile = resolveImport(absFile, binding.source, getParser(absFile));
+        if (importFile) {
+            const importedName = binding.namespace ? call.callee : binding.imported;
+            const importedSymbols = symbolsByFile.get(importFile);
+            if (importedSymbols?.has(importedName)) return importFile;
+            if (importedName === 'default' && importedSymbols?.size === 1) return importFile;
+        }
+    }
+
+    const candidates = filesBySymbol.get(call.callee) ?? [];
+    return candidates.length === 1 ? candidates[0] : null;
+}
+
+function findImportBinding(parsed, call) {
+    if (!parsed.importBindings) return null;
+    if (call.qualifier) {
+        return parsed.importBindings.find((binding) => binding.namespace && binding.local === call.qualifier) ?? null;
+    }
+    return parsed.importBindings.find((binding) => !binding.namespace && binding.local === call.callee) ?? null;
 }
