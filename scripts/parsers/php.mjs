@@ -1,7 +1,7 @@
 import { BaseParser } from './base.mjs';
 import { childText, firstNamedChildText, loadTreeSitter, stringValue, walk } from './tree-sitter-utils.mjs';
 
-const parser = loadTreeSitter('tree-sitter-php');
+const parser = loadTreeSitter('tree-sitter-php', (mod) => mod.php ?? mod);
 
 export class PhpParser extends BaseParser {
     get extensions() { return ['.php']; }

@@ -74,7 +74,7 @@ What works today:
 - repository packing with Repomix
 - LLM-generated wiki pages
 - TypeScript/JavaScript AST parsing for imports and exported symbols
-- Tree-sitter-backed parsers for Python and Ruby, with PHP retaining a safe regex fallback until the compatible grammar/runtime pair is finalized
+- Tree-sitter-backed parsers for Python, PHP, and Ruby, with regex fallbacks for parser load failures
 - SQLite graph generation
 - import-aware function-call extraction for JavaScript and TypeScript
 - MCP query server for graph lookups
@@ -94,7 +94,6 @@ What works today:
 
 What still needs work:
 
-- PHP parsing still needs a fully compatible Tree-sitter grammar/runtime pair
 - the npm package should be published and tested from a clean global install
 - MCP config is generated, but more assistant-specific presets could be added
 
@@ -187,15 +186,14 @@ scripts/
   update-detailed-maps.mjs
 ```
 
-The project is intentionally stack agnostic. JavaScript and TypeScript get the most accurate parsing today. Python and Ruby now use Tree-sitter-backed parsing, while PHP keeps a safe regex fallback until its Tree-sitter grammar/runtime compatibility is finalized.
+The project is intentionally stack agnostic. JavaScript and TypeScript get the most accurate parsing today. Python, PHP, and Ruby use Tree-sitter-backed parsing with safe regex fallbacks if a grammar cannot load in a given runtime.
 
 ## Roadmap
 
 The next milestones are:
 
-1. Finalize PHP Tree-sitter compatibility.
-2. Add more fixture repositories across mixed stacks.
-3. Add semantic search with local embeddings and SQLite vector search.
+1. Add more fixture repositories across mixed stacks.
+2. Add semantic search with local embeddings and SQLite vector search.
 
 ## Design Principles
 

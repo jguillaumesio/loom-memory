@@ -42,7 +42,7 @@ end
   assert.deepEqual(parser.extractSymbols(content), ['Api', 'User', 'find', 'save']);
 });
 
-test('PHP parser keeps extracting imports and symbols when Tree-sitter is unavailable', () => {
+test('PHP parser extracts imports and symbols through Tree-sitter', () => {
   const parser = new PhpParser();
   const content = `<?php
 use App\\Models\\User as UserModel;
@@ -57,5 +57,5 @@ const FOO = 1;
 `;
 
   assert.deepEqual(parser.extractImports(content), ['App\\Models\\User', 'boot.php']);
-  assert.deepEqual(parser.extractSymbols(content), ['Controller', 'helper', 'FOO']);
+  assert.deepEqual(parser.extractSymbols(content), ['Controller', 'index', 'helper', 'FOO']);
 });

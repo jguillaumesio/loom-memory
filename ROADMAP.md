@@ -30,7 +30,7 @@
 | V1-21 | Package smoke coverage | ✅ Done |
 | V1-22 | Import-aware call graph resolution | ✅ Done |
 | V1-23 | Clean global install smoke script | ✅ Done |
-| V2-06 | AST Parsers for Python / PHP / Ruby | 🟡 Partial (Python/Ruby Tree-sitter, PHP fallback) |
+| V2-06 | AST Parsers for Python / PHP / Ruby | ✅ Done |
 | V2-12 | MCP Tool Expansion | ✅ Done |
 | V2-16 | LLM Retry / Rate Limit Handling | ✅ Done |
 
@@ -282,8 +282,7 @@ Remaining future expansion: LLM-based claim verification for architecture/domain
 
 | Priority | Task | Why this order |
 |---|---|---|
-| 1 | PHP Tree-sitter compatibility | Completes V2-06 parser expansion |
-| 2 | Semantic search / embeddings | Adds task-aware low-token retrieval |
+| 1 | Semantic search / embeddings | Adds task-aware low-token retrieval |
 
 ---
 
@@ -293,15 +292,15 @@ Remaining future expansion: LLM-based claim verification for architecture/domain
 Requires V1-07 and V1-06 to be accurate enough to trust. Flags functions mentioned in wiki that no longer exist, deleted files referenced in architecture docs, zones described that no longer match actual structure.
 
 ### [V2-06] AST Parsers for Python / PHP / Ruby
-**Status:** 🟡 Partial — Python and Ruby use Tree-sitter with regex fallback. PHP remains on regex fallback because available npm grammar/runtime versions currently expose an incompatible language object with the pinned runtime.
+**Status:** ✅ Done — Python, PHP, and Ruby use Tree-sitter with regex fallback.
 
 | Language | Parser |
 |---|---|
 | Python | `tree-sitter` + `tree-sitter-python` ✅ |
-| PHP | regex fallback; Tree-sitter compatibility still needed 🟡 |
+| PHP | `tree-sitter` + `tree-sitter-php` ✅ |
 | Ruby | `tree-sitter` + `tree-sitter-ruby` ✅ |
 
-Next: identify a compatible PHP grammar/runtime pair or isolate PHP parsing behind a WASM parser package.
+PHP uses the grammar package's `php` language export, which is compatible with the pinned Node Tree-sitter runtime.
 
 ### [V2-08] Semantic Search / Embeddings
 Embed function bodies and wiki sections. Enable natural language queries via cosine similarity. Use `sqlite-vec` to keep everything in one SQLite file. Requires reliable call graph (V1-07) first.
