@@ -7,6 +7,7 @@ const require = createRequire(import.meta.url);
 
 import { generate as ollamaGenerate } from '../src/utils/ollama.js';
 import { loadConfig } from '../src/config.js';
+import { withRetry } from '../src/utils/retry.js';
 
 const args = process.argv.slice(2);
 const targetIdx = args.indexOf('--target');
@@ -78,6 +79,13 @@ async function chatAnthropic(prompt) {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 export async function chat(prompt) {
+    return withRetry(() => chatOnce(prompt), {
+        retries: config.llm?.retries ?? 2,
+        delayMs: config.llm?.retryDelayMs ?? 500,
+    });
+}
+
+async function chatOnce(prompt) {
     switch (provider) {
         case 'openai':    return chatOpenAI(prompt);
         case 'anthropic': return chatAnthropic(prompt);

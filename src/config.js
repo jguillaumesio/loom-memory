@@ -19,6 +19,8 @@ const configSchema = z.object({
     apiKey: z.string().optional(),
     baseURL: z.string().url().optional(),
     ollamaUrl: z.string().url().optional(),
+    retries: z.number().int().min(0).optional(),
+    retryDelayMs: z.number().int().min(0).optional(),
   }).default({ provider: 'ollama' }),
   ollama: z.object({
     model: z.string().min(1).optional(),
@@ -59,6 +61,8 @@ const DEFAULTS = {
       detailedMaps: process.env.OLLAMA_MODEL || 'qwen2.5-coder:7b',
       callGraph: process.env.LLM_MODEL || 'qwen2.5-coder:7b',
     },
+    retries: Number(process.env.LLM_RETRIES ?? 2),
+    retryDelayMs: Number(process.env.LLM_RETRY_DELAY_MS ?? 500),
   },
   ollama: {
     model: process.env.OLLAMA_MODEL || 'qwen2.5-coder:7b',

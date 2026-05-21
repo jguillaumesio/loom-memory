@@ -17,6 +17,8 @@ export default {
   const config = await loadConfig(dir);
   assert.equal(config.output.wiki, '_wiki');
   assert.equal(config.output.graph, '_graph');
+  assert.equal(config.llm.retries, 2);
+  assert.equal(config.llm.retryDelayMs, 500);
   assert.deepEqual(config.zones, [{ name: 'api', path: 'src/api' }]);
 });
 
@@ -30,4 +32,3 @@ export default {
 
   await assert.rejects(() => loadConfig(dir), /Invalid loom-memory config/);
 });
-

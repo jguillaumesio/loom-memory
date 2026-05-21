@@ -77,6 +77,7 @@ What works today:
 - raw Git post-commit hook installation
 - optional GitHub Actions workflow generation
 - LLM call logging to `_graph/runs.jsonl`
+- LLM retry handling for rate limits, transient network failures, and 5xx responses
 - prompt metadata for generated wiki freshness checks
 - section-level incremental wiki updates for affected zones
 - basic doctor, status, and verify commands
@@ -86,6 +87,7 @@ What works today:
 What still needs work:
 
 - PHP parsing still needs a fully compatible Tree-sitter grammar/runtime pair
+- interrupted LLM runs are not yet resumable from cached per-zone outputs
 - the npm package should be published and tested from a clean global install
 - MCP config is generated, but more assistant-specific presets could be added
 
