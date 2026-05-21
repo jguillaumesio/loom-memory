@@ -39,6 +39,10 @@
     "ollama": "^0.6.3",
     "openai": "^6.34.0",
     "ora": "^9.4.0",
+    "tree-sitter": "^0.21.1",
+    "tree-sitter-php": "^0.20.0",
+    "tree-sitter-python": "^0.21.0",
+    "tree-sitter-ruby": "^0.21.0",
     "typescript": "^6.0.3",
     "zod": "^4.3.6"
   },
