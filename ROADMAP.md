@@ -226,17 +226,17 @@ loom_version: "1.2.0"
 ## NEXT TODO
 
 ### [NEXT-01] Memory Verification / Drift Detection
-**Status:** 🟡 Next
+**Status:** ✅ Done (initial graph-backed implementation)
 **Priority:** High — now that incremental wiki sections can be surgically updated, the next self-improvement gap is preventing persistent memory from becoming stale or false.
 
-Build `loom-memory verify` to compare generated memory against the graph and filesystem:
-- flag wiki references to deleted files
-- flag mentioned symbols/functions that no longer exist in SQLite
-- flag configured zones with no matching files
-- report stale or missing generated section markers
-- exit non-zero only for strong drift signals, warn for uncertain text matches
+`loom-memory verify` now compares generated memory against the graph and filesystem:
+- flags wiki references to deleted files
+- flags mentioned `symbol()` references that no longer exist in SQLite
+- flags configured zones with no matching indexed files
+- reports stale or missing generated section markers as warnings
+- exits non-zero only for strong drift signals
 
-Start with JS/TS graph-backed checks and conservative Markdown link/path scanning before adding LLM-based claim verification.
+Remaining future expansion: LLM-based claim verification for architecture/domain statements that cannot be checked with conservative path and symbol scanning.
 
 ---
 

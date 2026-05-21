@@ -6,6 +6,7 @@ import { runUpdate } from '../src/commands/update.js'
 import { doctorCommand } from '../src/commands/doctor.js'
 import { statusCommand } from '../src/commands/status.js'
 import { installHooks } from '../src/commands/install-hooks.js'
+import { verifyCommand } from '../src/commands/verify.js'
 
 program
     .name('loom-memory')
@@ -41,6 +42,12 @@ program
     .description('Show index freshness and statistics')
     .argument('[repoPath]', 'Repository path', '.')
     .action(statusCommand)
+
+program
+    .command('verify')
+    .description('Verify generated memory against the graph and filesystem')
+    .argument('[repoPath]', 'Repository path', '.')
+    .action(verifyCommand)
 
 program
     .command('install-hooks <repoPath>')
