@@ -9,6 +9,7 @@ import { installHooks } from '../src/commands/install-hooks.js'
 import { verifyCommand } from '../src/commands/verify.js'
 import { searchCommand } from '../src/commands/search.js'
 import { benchmarkCommand } from '../src/commands/benchmark.js'
+import { adviseCommand } from '../src/commands/advise.js'
 
 program
     .name('loom-memory')
@@ -65,6 +66,13 @@ program
     .option('--probes <n>', 'Symbol retrieval probes to run', '20')
     .option('--json', 'Print machine-readable JSON')
     .action(benchmarkCommand)
+
+program
+    .command('advise <repoPath> <task>')
+    .description('Recommend context, reasoning, and output mode for a task')
+    .option('--limit <n>', 'Maximum memory search hits to consider', '8')
+    .option('--json', 'Print machine-readable JSON')
+    .action(adviseCommand)
 
 program
     .command('install-hooks <repoPath>')

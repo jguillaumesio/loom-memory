@@ -66,6 +66,7 @@ The MCP server currently exposes:
 - `zone_summary`
 - `recent_changes`
 - `semantic_search`
+- `recommend_execution_mode`
 
 ## Current Status
 
@@ -93,6 +94,7 @@ What works today:
 - section-level incremental wiki updates for affected zones
 - compact graph context queries for zone summaries and recent changed files
 - local semantic search over code and wiki chunks with deterministic embeddings
+- task advice for context strategy, reasoning level, and compact output mode
 - basic doctor, status, and verify commands
 - packaged CLI smoke coverage
 - fixture-based Node tests, including TypeScript, Python, PHP, and Ruby graph fixtures
@@ -121,6 +123,7 @@ node bin/cli.js doctor ./path/to/repo
 node bin/cli.js verify ./path/to/repo
 node bin/cli.js search ./path/to/repo "invoice line items"
 node bin/cli.js benchmark ./path/to/repo
+node bin/cli.js advise ./path/to/repo "Add password reset email flow"
 ```
 
 Check the packaged CLI from a temporary global install:
@@ -139,6 +142,7 @@ loom-memory doctor ./path/to/repo
 loom-memory verify ./path/to/repo
 loom-memory search ./path/to/repo "invoice line items"
 loom-memory benchmark ./path/to/repo
+loom-memory advise ./path/to/repo "Add password reset email flow"
 ```
 
 Build the graph for this repository:

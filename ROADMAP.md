@@ -38,6 +38,7 @@
 | V2-14 | Multi-Language Monorepo Support | ✅ Done (initial convention support) |
 | V2-16 | LLM Retry / Rate Limit Handling | ✅ Done |
 | V3-01 | Repository Benchmark Command | ✅ Done |
+| V3-03 | Task Advice / Output Router | ✅ Done |
 
 ---
 
@@ -312,6 +313,20 @@ Observed next-scope signals:
 - generated or entrypoint files often have no symbols, which should be classified separately from parser blind spots
 - empty indexed files can show up as missing search chunks and need clearer benchmark labeling
 - benchmark ranking should evolve from symbol probes to task-shaped retrieval probes
+
+### [V3-03] Task Advice / Output Router
+**Status:** ✅ Done
+**Priority:** High — reduce output tokens by recommending the smallest safe execution/output mode before an agent starts editing.
+
+`loom-memory advise <repoPath> <task>` and MCP `recommend_execution_mode` now return:
+- task size and risk classification
+- recommended reasoning level
+- context strategy
+- output mode: `compact_patch`, `recipe`, or `codegen`
+- memory-ranked files to inspect first
+- rationale for the recommendation
+
+Initial policy keeps the logic in loom-memory core and exposes it through CLI/MCP so clients such as OpenCode can consume it later without owning the repo intelligence.
 
 ---
 

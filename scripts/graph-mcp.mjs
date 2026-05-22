@@ -3,6 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { createGraphQueries } from './lib/graph-queries.mjs';
+import { buildTaskAdvice } from '../src/commands/advise.js';
 
 const DB_PATH = './_graph/codebase.db';
 
@@ -119,6 +120,16 @@ server.tool(
         limit: z.number().int().positive().max(50).optional().describe('Maximum number of chunks to return'),
     },
     async ({ query, limit = 8 }) => json(queries.search(query, { limit }))
+);
+
+server.tool(
+    'recommend_execution_mode',
+    'Recommend context strategy, reasoning level, output mode, and files to inspect for a task',
+    {
+        task: z.string().describe('Task or feature request'),
+        limit: z.number().int().positive().max(50).optional().describe('Maximum memory search hits to consider'),
+    },
+    async ({ task, limit = 8 }) => json(buildTaskAdvice(db, task, { limit }))
 );
 
 const transport = new StdioServerTransport();
