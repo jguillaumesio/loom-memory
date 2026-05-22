@@ -68,6 +68,14 @@ The MCP server currently exposes:
 - `semantic_search`
 - `recommend_execution_mode`
 
+Recommended agent workflow:
+
+1. Call MCP `recommend_execution_mode` with the user's task before broad source reading.
+2. Inspect the returned `filesToInspect` first.
+3. Use `semantic_search`, `find_symbol`, `find_callers`, `find_callees`, and `zone_summary` before opening more files.
+4. Match the response to `outputMode` so small tasks use compact patches or recipes instead of full-code output.
+5. Escalate to broader codebase reading only when the recommended context is insufficient.
+
 ## Current Status
 
 This repository is an alpha prototype with a working standalone CLI surface. The core external-repository flow is now wired, including graph-backed verification and section-level wiki refreshes for changed zones.

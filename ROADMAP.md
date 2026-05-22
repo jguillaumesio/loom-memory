@@ -328,6 +328,8 @@ Observed next-scope signals:
 
 Initial policy keeps the logic in loom-memory core and exposes it through CLI/MCP so clients such as OpenCode can consume it later without owning the repo intelligence.
 
+Generated `AGENTS.md` instructions now make `recommend_execution_mode` the mandatory first step before broad code reading. Agents should inspect returned files first, use graph/search tools before opening more files, and match their output to the advised mode.
+
 ---
 
 ## V2 TASKS (Future)

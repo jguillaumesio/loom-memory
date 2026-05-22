@@ -10,14 +10,14 @@ Do not change the structure, emojis, or section headers.
 
 ## 🚀 Session Start (mandatory, every task)
 
-1. Read `_wiki/04-Code-Map.md` — global project structure
-2. Read `_wiki/00-Index.md` — project overview and architecture
-3. Read `_wiki/03-Regles-LLM.md` — coding rules for this codebase
-4. Read `docs/decisions.md` if it exists — past decisions and patterns
-5. Read `docs/pitfalls.md` if it exists — known mistakes and false assumptions
-6. Use Serena (`find_symbol`, `find_references`) before assuming any file location
+1. Call loom-memory MCP `recommend_execution_mode` with the user's task before broad code reading.
+2. Follow its `filesToInspect`, `contextStrategy`, `recommendedReasoning`, and `outputMode`.
+3. Use loom-memory MCP tools (`semantic_search`, `find_symbol`, `find_callers`, `find_callees`, `zone_summary`) before opening additional source files.
+4. Read `_wiki/04-Code-Map.md` — global project structure, only if the recommended context is insufficient.
+5. Read `_wiki/00-Index.md` and `_wiki/03-Regles-LLM.md` for architecture and coding rules when the task touches multiple zones.
+6. Read `docs/decisions.md` and `docs/pitfalls.md` if they exist before changing established patterns.
 
-Only start planning after these steps.
+Only start planning after the routing step and the targeted memory/code reads it recommends.
 
 ---
 
@@ -32,7 +32,9 @@ Key entry points:
 
 ## 🧠 During the Task
 
-- Never assume where a component, hook, or util lives — use Serena to find it
+- Never assume where a component, hook, or util lives — use loom-memory graph/search first
+- Match your response format to the advised `outputMode`: `compact_patch`, `recipe`, `codegen`, or broader explanation only when necessary
+- Escalate from memory to broader source reading only when the recommended files are insufficient
 - Never import across apps directly — check `_wiki/03-Regles-LLM.md` for sharing patterns
 - Match existing patterns — if unsure, read 2-3 similar files first
 - Do not introduce new libraries — use what is already in the stack
@@ -44,7 +46,7 @@ Key entry points:
 
 - Never remove existing functionality unless explicitly asked
 - Never skip the Session Start steps
-- Never assume — verify with Serena
+- Never assume — verify with loom-memory MCP and targeted source reads
 - [Add 1-2 hard rules specific to this codebase based on what you observe]
 
 ---
