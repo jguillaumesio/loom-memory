@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { embedText, cosineSimilarity } from '../../src/utils/local-embeddings.js';
+import { embedText, cosineSimilarity, tokenize } from '../../src/utils/local-embeddings.js';
 
 const CHUNK_LINES = 80;
 const CHUNK_OVERLAP = 10;
@@ -51,6 +51,8 @@ export function rebuildSearchIndex(db, repoRoot, codeFiles, { wikiDir = '_wiki' 
 
 export function searchSemanticChunks(db, query, { limit = 8 } = {}) {
   const queryVector = embedText(query);
+  const queryTokens = tokenize(query);
+  const normalizedQuery = normalizeText(query);
   const rows = db.prepare(`
     SELECT path, kind, zone, symbol, start_line, end_line, text, embedding
     FROM semantic_chunks
@@ -59,7 +61,8 @@ export function searchSemanticChunks(db, query, { limit = 8 } = {}) {
   return rows
     .map((row) => {
       const embedding = JSON.parse(row.embedding);
-      const score = cosineSimilarity(queryVector, embedding);
+      const vectorScore = cosineSimilarity(queryVector, embedding);
+      const score = vectorScore + lexicalBoost(row, normalizedQuery, queryTokens);
       return {
         path: row.path,
         kind: row.kind,
@@ -148,6 +151,27 @@ function splitSymbols(symbols) {
     .split(',')
     .map((symbol) => symbol.trim())
     .filter(Boolean);
+}
+
+function lexicalBoost(row, normalizedQuery, queryTokens) {
+  const text = normalizeText(row.text);
+  const symbol = normalizeText(row.symbol);
+  const filePath = normalizeText(row.path);
+  let boost = 0;
+
+  if (normalizedQuery && symbol.split(/\s*,\s*/).includes(normalizedQuery)) boost += 3;
+  if (normalizedQuery && text.includes(normalizedQuery)) boost += 2;
+  if (normalizedQuery && filePath.includes(normalizedQuery)) boost += 0.75;
+  if (queryTokens.length > 0 && queryTokens.every((token) => text.includes(token))) boost += 0.5;
+  if (queryTokens.length > 0 && queryTokens.every((token) => symbol.includes(token))) boost += 1;
+
+  return boost;
+}
+
+function normalizeText(value) {
+  return String(value || '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .toLowerCase();
 }
 
 function preview(text) {

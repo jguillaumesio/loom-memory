@@ -294,6 +294,7 @@ Remaining future expansion: LLM-based claim verification for architecture/domain
 - cold-read token estimate from indexed files
 - memory-assisted token estimate from wiki memory plus configurable retrieval chunks
 - estimated token reduction percentage
+- symbol retrieval probes that verify reduced memory still finds defining files
 - language and zone coverage
 - parser/search gaps such as files without symbols or search chunks
 - JSON output for future automation via `--json`
@@ -303,14 +304,14 @@ Remaining future expansion: LLM-based claim verification for architecture/domain
 **Priority:** High — run benchmark on real repositories, starting with `/Users/guillaume/Documents/mmb`, and use the results to define ranking and parser improvements.
 
 Manual verification results:
-- `loom-memory`: 58 files, 103 search chunks, 48,109 cold-read tokens, 6,724 memory-assisted tokens, 86.0% estimated reduction.
-- Disposable copy of `/Users/guillaume/Documents/mmb`: 364 files, 831 search chunks, 355,615 cold-read tokens, 8,430 memory-assisted tokens, 97.6% estimated reduction.
+- `loom-memory`: 58 files, 103 search chunks, 49,059 cold-read tokens, 6,724 memory-assisted tokens, 86.3% estimated reduction, 20/20 understanding probes after lexical ranking boost.
+- Disposable copy of `/Users/guillaume/Documents/mmb`: 364 files, 831 search chunks, 355,615 cold-read tokens, 8,430 memory-assisted tokens, 97.6% estimated reduction, 20/20 understanding probes.
 - Python fixture: 2 files, 2 search chunks, clean symbol/search coverage.
 
 Observed next-scope signals:
 - generated or entrypoint files often have no symbols, which should be classified separately from parser blind spots
 - empty indexed files can show up as missing search chunks and need clearer benchmark labeling
-- benchmark ranking should evolve from largest chunks to task-shaped retrieval probes
+- benchmark ranking should evolve from symbol probes to task-shaped retrieval probes
 
 ---
 

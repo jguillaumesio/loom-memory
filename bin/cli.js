@@ -62,6 +62,7 @@ program
     .description('Measure graph coverage and estimated token reduction')
     .argument('[repoPath]', 'Repository path', '.')
     .option('--chunks <n>', 'Retrieval chunk count to model', '8')
+    .option('--probes <n>', 'Symbol retrieval probes to run', '20')
     .option('--json', 'Print machine-readable JSON')
     .action(benchmarkCommand)
 

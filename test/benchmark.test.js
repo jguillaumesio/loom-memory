@@ -37,6 +37,9 @@ export function main() {
   assert.ok(json.graph.semanticChunks >= 2);
   assert.ok(json.tokens.coldRead > 0);
   assert.ok(json.tokens.memoryAssisted > 0);
+  assert.equal(json.understanding.total, 2);
+  assert.equal(json.understanding.passed, 2);
+  assert.equal(json.understanding.passRate, 1);
   assert.ok(Array.isArray(json.recommendations));
 
   const human = execFileSync(process.execPath, [path.join(root, 'bin/cli.js'), 'benchmark', dir, '--chunks', '2'], {
@@ -46,4 +49,6 @@ export function main() {
   assert.match(human, /loom-memory benchmark/);
   assert.match(human, /Token Estimate/);
   assert.match(human, /Estimated reduction/);
+  assert.match(human, /Understanding Check/);
+  assert.match(human, /Pass rate/);
 });

@@ -4,8 +4,10 @@ import chalk from 'chalk';
 import Database from 'better-sqlite3';
 import { loadConfig } from '../config.js';
 import { estimateTokens } from '../utils/llm-log.js';
+import { searchSemanticChunks } from '../../scripts/lib/search-index.mjs';
 
 const DEFAULT_RETRIEVAL_CHUNKS = 8;
+const DEFAULT_PROBE_COUNT = 20;
 
 export async function benchmarkCommand(repoPath = '.', options = {}) {
   const repoRoot = path.resolve(repoPath);
@@ -22,7 +24,11 @@ export async function benchmarkCommand(repoPath = '.', options = {}) {
 
   const db = new Database(dbPath, { readonly: true });
   try {
-    const report = buildBenchmarkReport(db, repoRoot, { wikiDir, retrievalChunks: parseLimit(options.chunks) });
+    const report = buildBenchmarkReport(db, repoRoot, {
+      wikiDir,
+      retrievalChunks: parseLimit(options.chunks),
+      probeCount: parseLimit(options.probes, DEFAULT_PROBE_COUNT),
+    });
     if (options.json) {
       console.log(JSON.stringify(report, null, 2));
       return;
@@ -33,7 +39,11 @@ export async function benchmarkCommand(repoPath = '.', options = {}) {
   }
 }
 
-export function buildBenchmarkReport(db, repoRoot, { wikiDir = '_wiki', retrievalChunks = DEFAULT_RETRIEVAL_CHUNKS } = {}) {
+export function buildBenchmarkReport(db, repoRoot, {
+  wikiDir = '_wiki',
+  retrievalChunks = DEFAULT_RETRIEVAL_CHUNKS,
+  probeCount = DEFAULT_PROBE_COUNT,
+} = {}) {
   const files = db.prepare('SELECT path, zone, lang FROM files ORDER BY path').all();
   const fileStats = files.map((file) => {
     const abs = path.join(repoRoot, file.path);
@@ -45,6 +55,7 @@ export function buildBenchmarkReport(db, repoRoot, { wikiDir = '_wiki', retrieva
   const wikiTokens = estimateWikiTokens(path.join(repoRoot, wikiDir));
   const chunkStats = semanticChunkStats(db, retrievalChunks);
   const memoryAssistedTokens = wikiTokens + chunkStats.retrievalTokens;
+  const understanding = retrievalProbeStats(db, { limit: retrievalChunks, probeCount });
   const reductionPercent = coldReadTokens > 0
     ? Number((100 * (1 - (memoryAssistedTokens / coldReadTokens))).toFixed(1))
     : 0;
@@ -73,6 +84,7 @@ export function buildBenchmarkReport(db, repoRoot, { wikiDir = '_wiki', retrieva
       reductionPercent,
       retrievalChunkCount: chunkStats.countUsed,
     },
+    understanding,
     largestFiles: fileStats
       .filter((file) => file.exists)
       .sort((a, b) => b.tokens - a.tokens)
@@ -85,6 +97,7 @@ export function buildBenchmarkReport(db, repoRoot, { wikiDir = '_wiki', retrieva
       filesWithoutSearchChunks: filesWithoutSearchChunks(db),
       filesWithoutSymbols: filesWithoutSymbols(db),
       missingFiles: fileStats.filter((file) => !file.exists),
+      understanding,
     }),
   };
 }
@@ -106,6 +119,15 @@ function printReport(report) {
   console.log(`  ${report.tokens.retrievalChunkCount} retrieval chunks: ${chalk.cyan(formatNumber(report.tokens.retrievalChunks))} tokens`);
   console.log(`  Memory-assisted context: ${chalk.cyan(formatNumber(report.tokens.memoryAssisted))} tokens`);
   console.log(`  Estimated reduction: ${chalk.green(`${report.tokens.reductionPercent}%`)}`);
+
+  console.log(chalk.bold('\nUnderstanding Check'));
+  console.log(`  Symbol retrieval probes: ${chalk.cyan(`${report.understanding.passed}/${report.understanding.total}`)}`);
+  console.log(`  Pass rate: ${formatPassRate(report.understanding.passRate)}`);
+  if (report.understanding.failures.length > 0) {
+    for (const failure of report.understanding.failures.slice(0, 5)) {
+      console.log(chalk.gray(`      ${failure.symbol} → expected ${failure.expectedFile}`));
+    }
+  }
 
   console.log(chalk.bold('\nCoverage'));
   console.log(`  Languages: ${formatGrouped(report.coverage.languages)}`);
@@ -183,12 +205,61 @@ function filesWithoutSearchChunks(db) {
   `).all().map((row) => row.path);
 }
 
-function recommendations({ coldReadTokens, memoryAssistedTokens, semanticChunks, filesWithoutSearchChunks, filesWithoutSymbols, missingFiles }) {
+function retrievalProbeStats(db, { limit, probeCount }) {
+  if (!hasTable(db, 'semantic_chunks') || tableCount(db, 'semantic_chunks') === 0) {
+    return { total: 0, passed: 0, failed: 0, passRate: null, failures: [] };
+  }
+  const probes = sampleSymbols(db, probeCount);
+  const failures = [];
+  let passed = 0;
+
+  for (const probe of probes) {
+    const results = searchSemanticChunks(db, probe.name, { limit });
+    const hit = results.some((result) => result.path === probe.file);
+    if (hit) {
+      passed++;
+    } else {
+      failures.push({
+        symbol: probe.name,
+        expectedFile: probe.file,
+        topResult: results[0]?.path ?? null,
+      });
+    }
+  }
+
+  return {
+    total: probes.length,
+    passed,
+    failed: failures.length,
+    passRate: probes.length > 0 ? Number((passed / probes.length).toFixed(3)) : null,
+    failures,
+  };
+}
+
+function sampleSymbols(db, limit) {
+  if (!hasTable(db, 'symbols')) return [];
+  const rows = db.prepare(`
+    SELECT s.name, s.file
+    FROM symbols s
+    JOIN semantic_chunks c ON c.path = s.file
+    WHERE s.name != 'default'
+      AND length(s.name) > 2
+    GROUP BY s.name, s.file
+    ORDER BY length(s.name) DESC, s.file, s.name
+    LIMIT ?
+  `).all(limit);
+  return rows;
+}
+
+function recommendations({ coldReadTokens, memoryAssistedTokens, semanticChunks, filesWithoutSearchChunks, filesWithoutSymbols, missingFiles, understanding }) {
   const items = [];
   if (semanticChunks === 0) items.push('Run `npm run graph` or `loom-memory update` to build semantic search chunks.');
   if (missingFiles.length > 0) items.push('Refresh the graph; some indexed files no longer exist.');
   if (filesWithoutSearchChunks.length > 0) items.push('Inspect files without search chunks; they may be contracts or parser gaps.');
   if (filesWithoutSymbols.length > 0) items.push('Review symbol coverage for parser blind spots in low-signal files.');
+  if (understanding.passRate !== null && understanding.passRate < 0.8) {
+    items.push('Reduced-memory retrieval is missing defining files for sampled symbols; tune search ranking before relying on high token reduction.');
+  }
   if (coldReadTokens > 1_000 && memoryAssistedTokens / coldReadTokens > 0.5) {
     items.push('Memory context is still large; improve search ranking or split oversized wiki/maps.');
   }
@@ -237,4 +308,10 @@ function formatGrouped(rows) {
 
 function formatRiskCount(count) {
   return count === 0 ? chalk.green('0') : chalk.yellow(String(count));
+}
+
+function formatPassRate(rate) {
+  if (rate === null) return chalk.gray('no probes');
+  const percent = `${Math.round(rate * 100)}%`;
+  return rate >= 0.8 ? chalk.green(percent) : chalk.yellow(percent);
 }
