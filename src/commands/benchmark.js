@@ -189,7 +189,7 @@ function recommendations({ coldReadTokens, memoryAssistedTokens, semanticChunks,
   if (missingFiles.length > 0) items.push('Refresh the graph; some indexed files no longer exist.');
   if (filesWithoutSearchChunks.length > 0) items.push('Inspect files without search chunks; they may be contracts or parser gaps.');
   if (filesWithoutSymbols.length > 0) items.push('Review symbol coverage for parser blind spots in low-signal files.');
-  if (coldReadTokens > 0 && memoryAssistedTokens / coldReadTokens > 0.5) {
+  if (coldReadTokens > 1_000 && memoryAssistedTokens / coldReadTokens > 0.5) {
     items.push('Memory context is still large; improve search ranking or split oversized wiki/maps.');
   }
   if (items.length === 0) items.push('Benchmark looks healthy. Use this baseline when testing larger repositories.');

@@ -299,21 +299,18 @@ Remaining future expansion: LLM-based claim verification for architecture/domain
 - JSON output for future automation via `--json`
 
 ### [V3-02] Real-Repo Benchmark Runs
-**Status:** 🔴 Todo
+**Status:** ✅ Done
 **Priority:** High — run benchmark on real repositories, starting with `/Users/guillaume/Documents/mmb`, and use the results to define ranking and parser improvements.
 
-Manual verification targets:
-- disposable copy of `/Users/guillaume/Documents/mmb`
-- this repository
-- at least one non-TypeScript fixture or real repo
+Manual verification results:
+- `loom-memory`: 58 files, 103 search chunks, 48,109 cold-read tokens, 6,724 memory-assisted tokens, 86.0% estimated reduction.
+- Disposable copy of `/Users/guillaume/Documents/mmb`: 364 files, 831 search chunks, 355,615 cold-read tokens, 8,430 memory-assisted tokens, 97.6% estimated reduction.
+- Python fixture: 2 files, 2 search chunks, clean symbol/search coverage.
 
-Record for each:
-- cold-read tokens
-- memory-assisted tokens
-- estimated reduction
-- largest indexed files
-- files without symbols/search chunks
-- top recommendations
+Observed next-scope signals:
+- generated or entrypoint files often have no symbols, which should be classified separately from parser blind spots
+- empty indexed files can show up as missing search chunks and need clearer benchmark labeling
+- benchmark ranking should evolve from largest chunks to task-shaped retrieval probes
 
 ---
 
