@@ -120,6 +120,7 @@ node bin/cli.js status ./path/to/repo
 node bin/cli.js doctor ./path/to/repo
 node bin/cli.js verify ./path/to/repo
 node bin/cli.js search ./path/to/repo "invoice line items"
+node bin/cli.js benchmark ./path/to/repo
 ```
 
 Check the packaged CLI from a temporary global install:
@@ -137,6 +138,7 @@ loom-memory status ./path/to/repo
 loom-memory doctor ./path/to/repo
 loom-memory verify ./path/to/repo
 loom-memory search ./path/to/repo "invoice line items"
+loom-memory benchmark ./path/to/repo
 ```
 
 Build the graph for this repository:
@@ -161,6 +163,13 @@ Estimate detailed-map token usage and paid-provider cost without LLM calls or wr
 
 ```bash
 npm run detailed:dry-run
+```
+
+Measure graph coverage and estimated token reduction:
+
+```bash
+loom-memory benchmark ./path/to/repo
+loom-memory benchmark ./path/to/repo --json
 ```
 
 ## Intended CLI

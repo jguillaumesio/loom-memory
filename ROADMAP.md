@@ -37,6 +37,7 @@
 | V2-12 | MCP Tool Expansion | ✅ Done |
 | V2-14 | Multi-Language Monorepo Support | ✅ Done (initial convention support) |
 | V2-16 | LLM Retry / Rate Limit Handling | ✅ Done |
+| V3-01 | Repository Benchmark Command | ✅ Done |
 
 ---
 
@@ -282,9 +283,37 @@ Remaining future expansion: LLM-based claim verification for architecture/domain
 
 ---
 
-## V1 Implementation Order (Remaining)
+## V3 Scope
 
-No active roadmap tasks remain. Future work should be opened as new, scoped roadmap items before implementation.
+### [V3-01] Repository Benchmark Command
+**Status:** ✅ Done
+**Priority:** High — measuring token reduction and graph coverage is the foundation for improving retrieval quality without guessing.
+
+`loom-memory benchmark <repoPath>` now reports:
+- graph counts for files, symbols, imports, calls, and semantic chunks
+- cold-read token estimate from indexed files
+- memory-assisted token estimate from wiki memory plus configurable retrieval chunks
+- estimated token reduction percentage
+- language and zone coverage
+- parser/search gaps such as files without symbols or search chunks
+- JSON output for future automation via `--json`
+
+### [V3-02] Real-Repo Benchmark Runs
+**Status:** 🔴 Todo
+**Priority:** High — run benchmark on real repositories, starting with `/Users/guillaume/Documents/mmb`, and use the results to define ranking and parser improvements.
+
+Manual verification targets:
+- disposable copy of `/Users/guillaume/Documents/mmb`
+- this repository
+- at least one non-TypeScript fixture or real repo
+
+Record for each:
+- cold-read tokens
+- memory-assisted tokens
+- estimated reduction
+- largest indexed files
+- files without symbols/search chunks
+- top recommendations
 
 ---
 

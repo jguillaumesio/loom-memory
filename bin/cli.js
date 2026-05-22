@@ -8,6 +8,7 @@ import { statusCommand } from '../src/commands/status.js'
 import { installHooks } from '../src/commands/install-hooks.js'
 import { verifyCommand } from '../src/commands/verify.js'
 import { searchCommand } from '../src/commands/search.js'
+import { benchmarkCommand } from '../src/commands/benchmark.js'
 
 program
     .name('loom-memory')
@@ -55,6 +56,14 @@ program
     .description('Search local code and wiki memory for compact relevant context')
     .option('--limit <n>', 'Maximum number of chunks to return', '8')
     .action(searchCommand)
+
+program
+    .command('benchmark')
+    .description('Measure graph coverage and estimated token reduction')
+    .argument('[repoPath]', 'Repository path', '.')
+    .option('--chunks <n>', 'Retrieval chunk count to model', '8')
+    .option('--json', 'Print machine-readable JSON')
+    .action(benchmarkCommand)
 
 program
     .command('install-hooks <repoPath>')
