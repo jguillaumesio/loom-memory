@@ -28,6 +28,7 @@ db.exec(`
     DROP TABLE IF EXISTS calls;
     DROP TABLE IF EXISTS imports;
     DROP TABLE IF EXISTS symbols;
+    DROP TABLE IF EXISTS functions;
     DROP TABLE IF EXISTS files;
 
     CREATE TABLE files (
@@ -59,17 +60,27 @@ db.exec(`
                            callee_symbol TEXT NOT NULL,
                            line INTEGER
     );
+
+    CREATE TABLE functions (
+                               id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                               name       TEXT NOT NULL,
+                               file       TEXT NOT NULL,
+                               start_line INTEGER NOT NULL,
+                               end_line   INTEGER NOT NULL,
+                               lines      INTEGER NOT NULL
+    );
 `);
 
-const insertFile   = db.prepare(`INSERT OR IGNORE INTO files (path, zone, lang, symbols) VALUES (?, ?, ?, ?)`);
-const getFileId    = db.prepare(`SELECT id FROM files WHERE path = ?`);
-const insertImport = db.prepare(`INSERT OR IGNORE INTO imports (importer_id, importee_id) VALUES (?, ?)`);
-const insertSymbol = db.prepare(`INSERT INTO symbols (name, file) VALUES (?, ?)`);
-const insertCall   = db.prepare(`INSERT INTO calls (caller_file, caller_symbol, callee_file, callee_symbol, line) VALUES (?, ?, ?, ?, ?)`);
+const insertFile     = db.prepare(`INSERT OR IGNORE INTO files (path, zone, lang, symbols) VALUES (?, ?, ?, ?)`);
+const getFileId      = db.prepare(`SELECT id FROM files WHERE path = ?`);
+const insertImport   = db.prepare(`INSERT OR IGNORE INTO imports (importer_id, importee_id) VALUES (?, ?)`);
+const insertSymbol   = db.prepare(`INSERT INTO symbols (name, file) VALUES (?, ?)`);
+const insertCall     = db.prepare(`INSERT INTO calls (caller_file, caller_symbol, callee_file, callee_symbol, line) VALUES (?, ?, ?, ?, ?)`);
+const insertFunction = db.prepare(`INSERT INTO functions (name, file, start_line, end_line, lines) VALUES (?, ?, ?, ?, ?)`);
 const filesBySymbol = new Map();
 const symbolsByFile = new Map();
 
-// ── auto-detect zones from filesystem ─────────────────────────────────────
+// -- auto-detect zones from filesystem --
 function detectZone(filePath) {
     const rel = relative(ROOT, filePath);
     const parts = rel.split('/');
@@ -80,14 +91,13 @@ function detectZone(filePath) {
     return parts[0];
 }
 
-// ── resolve import path to actual file ────────────────────────────────────
+// -- resolve import path to actual file --
 const TS_RESOLVE_EXTS = [
     '', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
     '/index.ts', '/index.tsx', '/index.js', '/index.jsx', '/index.mjs',
 ];
 
 function resolveImport(fromFile, importPath, parser) {
-    // skip bare node_modules / composer / pip packages
     if (!importPath.startsWith('.') && !importPath.startsWith('/') &&
         !importPath.startsWith('\\')) return null;
 
@@ -101,16 +111,16 @@ function resolveImport(fromFile, importPath, parser) {
     return null;
 }
 
-// ── build ─────────────────────────────────────────────────────────────────
+// -- build --
 const ig = loadLoomIgnore(ROOT);
 const files = [
     ...getIndexableFiles(ROOT, ig, { extensions: new Set(getAllExtensions()) }),
     ...getContractFiles(ROOT, ig),
 ];
-console.log(`📂 Found ${files.length} files`);
+console.log(`Found ${files.length} files`);
 
 const build = db.transaction((files) => {
-    // Pass 1 — insert all files
+    // Pass 1 -- insert all files + functions
     for (const file of files) {
         const rel     = relative(ROOT, file);
         const zone    = detectZone(file);
@@ -123,8 +133,11 @@ const build = db.transaction((files) => {
                 const lang   = extname(file).replace('.', '');
                 insertFile.run(rel, zone, lang, parsed.symbols.join(','));
                 for (const sym of parsed.symbols) recordSymbol(sym, rel);
+                for (const fn of parsed.functions) {
+                  insertFunction.run(fn.name, rel, fn.startLine, fn.endLine, fn.endLine - fn.startLine + 1);
+                }
             } catch (err) {
-                console.error(`! parse failed: ${rel} — ${err.message}`);
+                console.error(`! parse failed: ${rel} -- ${err.message}`);
                 insertFile.run(rel, zone, extname(file).replace('.', ''), '');
             }
         } else {
@@ -138,7 +151,7 @@ const build = db.transaction((files) => {
         }
     }
 
-    // Pass 2 — insert imports
+    // Pass 2 -- insert imports
     for (const file of files) {
         const rel    = relative(ROOT, file);
         const fromId = getFileId.get(rel)?.id;
@@ -174,7 +187,7 @@ const build = db.transaction((files) => {
         }
     }
 
-    // Pass 3 — insert function call sites for TS/JS family
+    // Pass 3 -- insert function call sites for TS/JS family
     for (const file of files) {
         if (!isTsFile(file)) continue;
         const rel = relative(ROOT, file);
@@ -198,9 +211,10 @@ const fc = db.prepare('SELECT COUNT(*) as c FROM files').get().c;
 const ic = db.prepare('SELECT COUNT(*) as c FROM imports').get().c;
 const sc = db.prepare('SELECT COUNT(*) as c FROM symbols').get().c;
 const cc = db.prepare('SELECT COUNT(*) as c FROM calls').get().c;
+const fnc = db.prepare('SELECT COUNT(*) as c FROM functions').get().c;
 const ec = rebuildSearchIndex(db, ROOT, files, { wikiDir: config.output?.wiki || '_wiki' });
 
-console.log(`✅ Graph built: ${fc} files, ${ic} import edges, ${sc} symbols, ${cc} calls, ${ec} search chunks`);
+console.log(`Graph built: ${fc} files, ${ic} imports, ${sc} symbols, ${cc} calls, ${fnc} functions, ${ec} search chunks`);
 db.close();
 
 function parseTs(file) {

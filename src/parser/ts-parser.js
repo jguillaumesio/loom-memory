@@ -9,12 +9,13 @@ export function isTsFile(filePath) {
 }
 
 /**
- * Parse a source file and return { symbols, imports, importBindings, calls }.
+ * Parse a source file and return { symbols, imports, importBindings, calls, functions }.
  *
- * symbols: string[] — top-level exported names
- * imports: string[] — module specifiers (raw, unresolved)
- * importBindings: { local: string, imported: string, source: string, namespace: boolean }[] — local import names
- * calls: { caller: string, callee: string, qualifier?: string, line: number }[] — detected call sites
+ * symbols: string[] -- top-level exported names
+ * imports: string[] -- module specifiers (raw, unresolved)
+ * importBindings: { local, imported, source, namespace }[] -- local import names
+ * calls: { caller, callee, qualifier?, line }[] -- detected call sites
+ * functions: { name, startLine, endLine }[] -- detected function/method declarations
  */
 export function parseFile(filePath) {
   const text = fs.readFileSync(filePath, 'utf8');
@@ -31,21 +32,19 @@ export function parseFile(filePath) {
   const imports = new Set();
   const importBindings = [];
   const calls = [];
+  const functions = [];
   const functionStack = [];
 
   function visit(node) {
-    // ── IMPORTS ──────────────────────────────────────────
-    // import x from 'm'; import { a } from 'm'; import * as ns from 'm';
+    // -- IMPORTS --
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
       const source = node.moduleSpecifier.text;
       imports.add(source);
       collectImportBindings(node, source);
     }
-    // export { a } from 'm';  export * from 'm';
     if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
       imports.add(node.moduleSpecifier.text);
     }
-    // import x = require('m')
     if (ts.isImportEqualsDeclaration(node) &&
         ts.isExternalModuleReference(node.moduleReference) &&
         ts.isStringLiteral(node.moduleReference.expression)) {
@@ -72,8 +71,7 @@ export function parseFile(filePath) {
       }
     }
 
-    // ── EXPORTED SYMBOLS ─────────────────────────────────
-    // export function foo() {} / export class Foo {} / export const x = ...
+    // -- EXPORTED SYMBOLS --
     if (
       (ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node) || ts.isInterfaceDeclaration(node) ||
        ts.isTypeAliasDeclaration(node) || ts.isEnumDeclaration(node))
@@ -87,26 +85,29 @@ export function parseFile(filePath) {
         if (ts.isIdentifier(decl.name)) symbols.add(decl.name.text);
       }
     }
-    // export default function foo() {} / export default class Bar {}
     if ((ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) && hasDefaultModifier(node)) {
       symbols.add(node.name ? node.name.text : 'default');
     }
-    // export { a, b as c }
     if (ts.isExportDeclaration(node) && node.exportClause && ts.isNamedExports(node.exportClause)) {
       for (const el of node.exportClause.elements) {
         symbols.add((el.name).text);
       }
     }
-    // export = something  (CJS-style)
     if (ts.isExportAssignment(node)) {
       symbols.add(node.isExportEquals ? 'export=' : 'default');
     }
 
+    // -- FUNCTION TRACKING --
     const fnName = functionName(node);
     if (fnName) {
+      const startPos = sf.getLineAndCharacterOfPosition(node.getStart(sf));
+      const entry = { name: fnName, startLine: startPos.line + 1, endLine: startPos.line + 1 };
       functionStack.push(fnName);
+      functions.push(entry);
       ts.forEachChild(node, visit);
       functionStack.pop();
+      const endPos = sf.getLineAndCharacterOfPosition(node.getEnd());
+      entry.endLine = endPos.line + 1;
       return;
     }
 
@@ -194,5 +195,6 @@ export function parseFile(filePath) {
     imports: [...imports],
     importBindings,
     calls,
+    functions,
   };
 }
